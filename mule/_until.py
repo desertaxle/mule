@@ -101,7 +101,7 @@ class CompositeUntilAny(Until):
 
 def attempts_exhausted(max_attempts: int) -> Until:
     """
-    A convenience function that returns an Until implementation keeps attempting if there is an exception,
-    but stops after a fixed number of attempts.
+    A convenience function that returns an Until implementation that stops attempts if
+    no exception is raised or the provided number of attempts is reached.
     """
     return AttemptsExhausted(max_attempts) | NoException()
