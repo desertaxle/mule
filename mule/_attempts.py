@@ -3,18 +3,18 @@ from types import TracebackType
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from mule._until import Until  # pragma: no cover
+    from mule._stop_conditions import StopCondition  # pragma: no cover
 
 
 class AttemptGenerator:
     """
     A generator that yields attempt contexts until a stopping condition is met.
 
-    The stopping condition is defined by the `Until` protocol.
+    The stopping condition is defined by the `StopCondition` protocol.
     """
 
-    def __init__(self, until: "Until"):
-        self.until: "Until" = until
+    def __init__(self, until: "StopCondition"):
+        self.stop_condition: "StopCondition" = until
         self._attempts: list[AttemptContext] = []
 
     @property
@@ -43,7 +43,7 @@ class AttemptGenerator:
         return self
 
     def __next__(self) -> AttemptContext:
-        if self.until.is_condition_met(self.last_attempt):
+        if self.stop_condition.is_met(self.last_attempt):
             if self.last_attempt and (last_exception := self.last_attempt.exception):
                 raise last_exception
             else:
