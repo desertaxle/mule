@@ -1,6 +1,6 @@
 import pytest
 
-from mule._stop_conditions import (
+from mule.stop_conditions import (
     IntersectionStopCondition,
     AttemptsExhausted,
     ExceptionMatches,
@@ -8,6 +8,15 @@ from mule._stop_conditions import (
     UnionStopCondition,
 )
 from mule._attempts import AttemptContext
+
+
+class TestStopCondition:
+    def test_eq(self):
+        stop_condition = AttemptsExhausted(3)
+        assert stop_condition == AttemptsExhausted(3)
+        assert stop_condition != AttemptsExhausted(4)
+        assert stop_condition != NoException()
+        assert stop_condition != 3
 
 
 class TestAttemptsExhausted:
@@ -182,9 +191,6 @@ class TestComplexStopConditionCombinations:
         assert (
             stop_condition.is_met(context) is False
         )  # ExceptionMatches(ValueError) not met
-
-        # Only if all are met
-        # This is not possible, but test for completeness
 
     def test_multiple_or(self):
         # AttemptsExhausted(3) | NoException() | ExceptionMatches(ValueError)
