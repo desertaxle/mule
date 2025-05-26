@@ -1,9 +1,7 @@
 from __future__ import annotations
 from types import TracebackType
-from typing import TYPE_CHECKING
 
-if TYPE_CHECKING:
-    from mule._stop_conditions import StopCondition  # pragma: no cover
+from mule.stop_conditions import NoException, StopCondition
 
 
 class AttemptGenerator:
@@ -13,8 +11,11 @@ class AttemptGenerator:
     The stopping condition is defined by the `StopCondition` protocol.
     """
 
-    def __init__(self, until: "StopCondition"):
-        self.stop_condition: "StopCondition" = until
+    def __init__(self, until: "StopCondition | None" = None):
+        if until is None:
+            self.stop_condition = NoException()
+        else:
+            self.stop_condition: "StopCondition" = until | NoException()
         self._attempts: list[AttemptContext] = []
 
     @property
