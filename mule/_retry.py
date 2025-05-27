@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from functools import partial, update_wrapper
 from typing import Callable, Generic, TypeVar, cast, overload
 from typing_extensions import ParamSpec

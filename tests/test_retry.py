@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import pytest
 from mule._attempts import AttemptContext
 from mule._retry import retry, Retriable
