@@ -8,7 +8,9 @@ version = "0.1.0"
 description = "Add a stubborn streak to your code."
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = []
+dependencies = [
+    "typing-extensions>=4.13.2",
+]
 
 [dependency-groups]
 dev = [
