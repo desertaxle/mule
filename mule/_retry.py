@@ -62,7 +62,7 @@ def retry(
     Example:
         Retry a function until 3 attempts have been made.
         ```python
-        from mule.retry import retry
+        from mule import retry
         from mule.stop_conditions import AttemptsExhausted
 
         @retry(until=AttemptsExhausted(3))
