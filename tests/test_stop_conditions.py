@@ -214,3 +214,23 @@ class TestComplexStopConditionCombinations:
         assert (
             stop_condition.is_met(context) is True
         )  # ExceptionMatches(ValueError) met
+
+
+class TestInvertedStopCondition:
+    def test_inverted_stop_condition(self):
+        stop_condition = ~ExceptionMatches(RuntimeError)
+        assert stop_condition.is_met(None) is False
+
+        context = AttemptContext(attempt=1)
+        context.exception = RuntimeError()
+        assert stop_condition.is_met(context) is False
+
+        context = AttemptContext(attempt=1)
+        context.exception = ValueError()
+        assert stop_condition.is_met(context) is True
+
+    def test_double_inversion(self):
+        original_stop_condition = ExceptionMatches(RuntimeError)
+        inverted_stop_condition = ~original_stop_condition
+        assert ~inverted_stop_condition is original_stop_condition
+        assert ~original_stop_condition == inverted_stop_condition
