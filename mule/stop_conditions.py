@@ -36,6 +36,9 @@ class StopCondition(abc.ABC):
             return False
         return self.__dict__ == other.__dict__
 
+    def __invert__(self) -> StopCondition:
+        return InvertedStopCondition(self)
+
 
 class NoException(StopCondition):
     """
@@ -104,6 +107,23 @@ class UnionStopCondition(StopCondition):
 
     def is_met(self, context: "AttemptContext | None") -> bool:
         return any(condition.is_met(context) for condition in self.conditions)
+
+
+class InvertedStopCondition(StopCondition):
+    """
+    A StopCondition implementation that inverts the given StopCondition.
+    """
+
+    def __init__(self, condition: StopCondition):
+        self.condition = condition
+
+    def is_met(self, context: "AttemptContext | None") -> bool:
+        if context is None:
+            return False
+        return not self.condition.is_met(context)
+
+    def __invert__(self) -> StopCondition:
+        return self.condition
 
 
 __all__ = [
