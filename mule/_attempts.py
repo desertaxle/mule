@@ -2,8 +2,26 @@ from __future__ import annotations
 import datetime
 import time
 from types import TracebackType
+from typing_extensions import Protocol
 
 from mule.stop_conditions import NoException, StopCondition
+
+
+class WaitTimeProvider(Protocol):
+    """
+    Protocol for callables that produce a wait time given the previous and next AttemptContext.
+
+    Args:
+        prev: The previous AttemptContext, or None if this is the first attempt.
+        next: The next AttemptContext (the one about to be run).
+
+    Returns:
+        The wait time as a timedelta, seconds (int/float), or None.
+    """
+
+    def __call__(
+        self, prev: "AttemptContext | None", next: "AttemptContext"
+    ) -> datetime.timedelta | int | float | None: ...
 
 
 class AttemptGenerator:
@@ -16,8 +34,16 @@ class AttemptGenerator:
     def __init__(
         self,
         until: "StopCondition | None" = None,
-        wait: datetime.timedelta | int | float | None = None,
+        wait: datetime.timedelta | int | float | None | WaitTimeProvider = None,
     ):
+        """
+        Initialize the AttemptGenerator.
+
+        Args:
+            until: The stop condition for attempts.
+            wait: The wait time between attempts. Can be a timedelta, seconds (int/float),
+                or a WaitTimeProvider callable that takes an AttemptContext and returns a timedelta, seconds, or None.
+        """
         if until is None:
             self.stop_condition = NoException()
         else:
@@ -50,6 +76,23 @@ class AttemptGenerator:
     def __iter__(self) -> AttemptGenerator:
         return self
 
+    def _wait_for_next_attempt(self, attempt: "AttemptContext") -> None:
+        """
+        Wait for the appropriate amount of time before the next attempt, if needed.
+
+        Args:
+            attempt: The current AttemptContext.
+        """
+        if attempt.attempt > 1 and self.wait:
+            wait_time = self.wait
+            if callable(wait_time):
+                wait_time = wait_time(self.last_attempt, attempt)
+            if wait_time is not None:
+                if isinstance(wait_time, datetime.timedelta):
+                    time.sleep(wait_time.total_seconds())
+                else:
+                    time.sleep(float(wait_time))
+
     def __next__(self) -> AttemptContext:
         if self.stop_condition.is_met(self.last_attempt):
             if self.last_attempt and (last_exception := self.last_attempt.exception):
@@ -58,11 +101,7 @@ class AttemptGenerator:
                 raise StopIteration
 
         attempt = self.get_next_attempt()
-        if attempt.attempt > 1 and self.wait:
-            if isinstance(self.wait, datetime.timedelta):
-                time.sleep(self.wait.total_seconds())
-            else:
-                time.sleep(self.wait)
+        self._wait_for_next_attempt(attempt)
         return attempt
 
 

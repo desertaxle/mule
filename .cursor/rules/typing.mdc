@@ -1,0 +1,9 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- Use built-in types (`list`, `dict`, `set`) instead of `Dict`, `List`, and `Set` when type hinting.
+- Use `|` instead of `Union` for type unions.
+- Use `| None` instead of `Optional` for optional types.
+- Whenever using `|` for type hinting, add `from __future__ import annotations` at the top of the file to support Python 3.8 and 3.9.
