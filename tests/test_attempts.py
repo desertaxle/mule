@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import datetime
 from unittest.mock import MagicMock
 import pytest
@@ -46,8 +48,8 @@ class TestWait:
         monkeypatch.setattr("time.sleep", mock_sleep)
         return mock_sleep
 
-    @pytest.mark.parametrize("wait", [5, datetime.timedelta(seconds=5), 5.0])
-    def test_wait(self, wait: int | datetime.timedelta, mock_sleep: MagicMock):
+    @pytest.mark.parametrize("wait", [5, datetime.timedelta(minutes=5), 5.0])
+    def test_wait(self, wait: int | float | datetime.timedelta, mock_sleep: MagicMock):
         attempts = 0
         for attempt in attempting(until=AttemptsExhausted(3), wait=wait):
             with attempt:

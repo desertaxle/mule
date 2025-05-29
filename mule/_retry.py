@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from functools import partial, update_wrapper
 from typing import Callable, Generic, TypeVar, cast, overload
 from typing_extensions import ParamSpec
@@ -21,12 +22,19 @@ class Retriable(Generic[P, R]):
     Args:
         __fn: The function to retry on failure.
         until: A `StopCondition` that determines when to stop retrying the provided function.
+        wait: A `datetime.timedelta` or a number of seconds to wait between attempts.
     """
 
-    def __init__(self, __fn: Callable[P, R], *, until: StopCondition | None = None):
+    def __init__(
+        self,
+        __fn: Callable[P, R],
+        *,
+        until: StopCondition | None = None,
+        wait: datetime.timedelta | int | float | None = None,
+    ):
         self.fn = __fn
         update_wrapper(self, __fn)
-        self.attempting: AttemptGenerator = AttemptGenerator(until=until)
+        self.attempting: AttemptGenerator = AttemptGenerator(until=until, wait=wait)
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
         for attempt in self.attempting:
@@ -40,32 +48,62 @@ class Retriable(Generic[P, R]):
 
 @overload
 def retry(
-    __fn: None = None, *, until: StopCondition | None = None
+    __fn: None = None,
+    *,
+    until: StopCondition | None = None,
+    wait: datetime.timedelta | int | float | None = None,
 ) -> Callable[[Callable[P, R]], Retriable[P, R]]: ...
 
 
 @overload
 def retry(
-    __fn: Callable[P, R], *, until: StopCondition | None = None
+    __fn: Callable[P, R],
+    *,
+    until: StopCondition | None = None,
+    wait: datetime.timedelta | int | float | None = None,
 ) -> Retriable[P, R]: ...
 
 
 def retry(
-    __fn: Callable[P, R] | None = None, *, until: StopCondition | None = None
+    __fn: Callable[P, R] | None = None,
+    *,
+    until: StopCondition | None = None,
+    wait: datetime.timedelta | int | float | None = None,
 ) -> Retriable[P, R] | Callable[[Callable[P, R]], Retriable[P, R]]:
     """
     A function decorator that retries a function until a stop condition is met.
 
     Args:
         until: A `StopCondition` that determines when to stop retrying the provided function.
+        wait: A `datetime.timedelta` or a number of seconds to wait between attempts.
 
     Example:
-        Retry a function until 3 attempts have been made.
+        Retry a function until 3 attempts have been made:
         ```python
         from mule import retry
         from mule.stop_conditions import AttemptsExhausted
 
         @retry(until=AttemptsExhausted(3))
+        def f(x: int) -> int:
+            return x * 3
+        ```
+
+        Retry a function until 3 attempts have been made, waiting 5 seconds between attempts:
+        ```python
+        from mule import retry
+        from mule.stop_conditions import AttemptsExhausted
+
+        @retry(until=AttemptsExhausted(3), wait=5)
+        def f(x: int) -> int:
+            return x * 3
+        ```
+
+        Retry a function as long as the raised exception is not a `ValueError`:
+        ```python
+        from mule import retry
+        from mule.stop_conditions import ExceptionMatches
+
+        @retry(until=~ExceptionMatches(ValueError))
         def f(x: int) -> int:
             return x * 3
         ```
@@ -76,7 +114,7 @@ def retry(
                 [Callable[P, R]],
                 Retriable[P, R],
             ],
-            partial(retry, until=until),
+            partial(retry, until=until, wait=wait),
         )
     else:
-        return Retriable(__fn, until=until)
+        return Retriable(__fn, until=until, wait=wait)

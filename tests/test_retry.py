@@ -1,4 +1,6 @@
 from __future__ import annotations
+import datetime
+from unittest.mock import MagicMock
 
 import pytest
 from mule._attempts import AttemptContext
@@ -53,6 +55,12 @@ class TestRetriable:
 
 
 class TestRetryDecorator:
+    @pytest.fixture
+    def mock_sleep(self, monkeypatch: pytest.MonkeyPatch):
+        mock_sleep = MagicMock()
+        monkeypatch.setattr("time.sleep", mock_sleep)
+        return mock_sleep
+
     def test_retry_decorator_success(self):
         @retry(until=AttemptsExhausted(2))
         def f(x: int) -> int:
@@ -95,3 +103,24 @@ class TestRetryDecorator:
             match="Failed to make a single attempt with the given stop condition",
         ):
             f(3)
+
+    @pytest.mark.parametrize("wait", [5, datetime.timedelta(minutes=5), 5.0])
+    def test_retry_decorator_with_wait(
+        self, wait: int | float | datetime.timedelta, mock_sleep: MagicMock
+    ):
+        attempts = 0
+
+        @retry(until=AttemptsExhausted(3), wait=wait)
+        def f(x: int) -> int:
+            nonlocal attempts
+            attempts += 1
+            if attempts < 2:
+                raise Exception("fail")
+            return x * 3
+
+        assert f(3) == 9
+
+        if isinstance(wait, datetime.timedelta):
+            mock_sleep.assert_called_once_with(wait.total_seconds())
+        else:
+            mock_sleep.assert_called_once_with(wait)
