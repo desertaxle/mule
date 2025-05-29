@@ -1,4 +1,6 @@
 from __future__ import annotations
+import datetime
+import time
 from types import TracebackType
 
 from mule.stop_conditions import NoException, StopCondition
@@ -11,11 +13,16 @@ class AttemptGenerator:
     The stopping condition is defined by the `StopCondition` protocol.
     """
 
-    def __init__(self, until: "StopCondition | None" = None):
+    def __init__(
+        self,
+        until: "StopCondition | None" = None,
+        wait: datetime.timedelta | int | float | None = None,
+    ):
         if until is None:
             self.stop_condition = NoException()
         else:
             self.stop_condition: "StopCondition" = until | NoException()
+        self.wait = wait
         self._attempts: list[AttemptContext] = []
 
     @property
@@ -50,7 +57,13 @@ class AttemptGenerator:
             else:
                 raise StopIteration
 
-        return self.get_next_attempt()
+        attempt = self.get_next_attempt()
+        if attempt.attempt > 1 and self.wait:
+            if isinstance(self.wait, datetime.timedelta):
+                time.sleep(self.wait.total_seconds())
+            else:
+                time.sleep(self.wait)
+        return attempt
 
 
 class AttemptContext:
