@@ -1,6 +1,6 @@
 from __future__ import annotations
 import datetime
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 from mule._attempts import AttemptContext
@@ -124,3 +124,56 @@ class TestRetryDecorator:
             mock_sleep.assert_called_once_with(wait.total_seconds())
         else:
             mock_sleep.assert_called_once_with(wait)
+
+    def test_retry_decorator_with_exponential_backoff_callable(
+        self, mock_sleep: MagicMock
+    ):
+        attempts = 0
+
+        def exp_backoff(prev: AttemptContext | None, next: AttemptContext) -> int:
+            return 2 ** (next.attempt - 1)
+
+        @retry(until=AttemptsExhausted(4), wait=exp_backoff)
+        def f(x: int) -> int:
+            nonlocal attempts
+            attempts += 1
+            if attempts < 4:
+                raise Exception("fail")
+            return x
+
+        assert f(5) == 5
+        # Should sleep 2, 4, 8 seconds (for attempts 2, 3, 4)
+        mock_sleep.assert_has_calls(
+            [
+                call(2),
+                call(4),
+                call(8),
+            ]
+        )
+
+    def test_retry_decorator_with_exponential_backoff_callable_and_max_wait(
+        self, mock_sleep: MagicMock
+    ):
+        attempts = 0
+
+        def exp_backoff(prev: AttemptContext | None, next: AttemptContext) -> int:
+            return min(3 ** (next.attempt - 1), 7)
+
+        @retry(until=AttemptsExhausted(5), wait=exp_backoff)
+        def f(x: int) -> int:
+            nonlocal attempts
+            attempts += 1
+            if attempts < 5:
+                raise Exception("fail")
+            return x
+
+        assert f(10) == 10
+        # Should sleep 3, 7, 7, 7 (capped at max_wait=7)
+        mock_sleep.assert_has_calls(
+            [
+                call(3),
+                call(7),
+                call(7),
+                call(7),
+            ]
+        )

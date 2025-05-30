@@ -1,0 +1,15 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+- Use `pytest` for all tests: All test files should use pytest conventions (fixtures, parametrize, etc.).
+- Test file naming: All test files should be named test_*.py and placed in the tests/ directory.
+- Test function naming: All test functions should be prefixed with `test_` for pytest discovery.
+- Test coverage: When adding new features or fixing bugs, add or update tests to cover the changes.
+- Mocking: Use unittest.mock or pytest fixtures for mocking dependencies (see mock_sleep usage).
+- Use plain `assert` statements to leverage pytest's assertion introspection.
+- Use `pytest.mark.parametrize` for similar test cases.
+- Use `pytest` fixtures for setup and teardown logic.
+- All test functions and classes should have descriptive names and, where appropriate, docstrings explaining the test's purpose.
+- Tests should be isolated and deterministic; avoid reliance on global state or external resources.

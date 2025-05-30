@@ -1,0 +1,23 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+- Follow Ruff and Ruff-format rules: All code must pass ruff and ruff-format as enforced by pre-commit.
+- Always run `ruff format` before committing. Do not manually override formatting decisions made by automated tools.
+- Docstrings: All public modules, classes, methods, and functions must have docstrings following the Google docstring style. Docstrings should include a summary, argument descriptions, return values, and exceptions raised (if any).
+- Example (Google style):
+    def add(a: int, b: int) -> int:
+        \"\"\"Add two integers.
+
+        Args:
+            a: The first integer.
+            b: The second integer.
+
+        Returns:
+            The sum of a and b.
+        \"\"\"
+- Line length: Max line length is 88 characters.
+- No unused imports or variables: Remove any code flagged by Ruff as unused.
+- Organize imports in the following order: standard library, third-party, local application imports.
+- All public functions and methods must include complete type hints for arguments and return values.
