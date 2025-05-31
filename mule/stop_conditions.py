@@ -4,7 +4,7 @@ import abc
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from mule._attempts import AttemptContext  # pragma: no cover
+    from mule._attempts.dataclasses import AttemptState  # pragma: no cover
 
 
 class StopCondition(abc.ABC):
@@ -13,7 +13,7 @@ class StopCondition(abc.ABC):
     """
 
     @abc.abstractmethod
-    def is_met(self, context: "AttemptContext | None") -> bool:
+    def is_met(self, context: "AttemptState | None") -> bool:
         """
         Checks if execution should stop.
 
@@ -45,7 +45,7 @@ class NoException(StopCondition):
     A StopCondition implementation that stops if no exception is raised in the attempt context.
     """
 
-    def is_met(self, context: "AttemptContext | None") -> bool:
+    def is_met(self, context: "AttemptState | None") -> bool:
         if context is None:
             return False
         return context.exception is None
@@ -59,7 +59,7 @@ class ExceptionMatches(StopCondition):
     def __init__(self, exception_type: type[BaseException]):
         self.exception_type = exception_type
 
-    def is_met(self, context: "AttemptContext | None") -> bool:
+    def is_met(self, context: "AttemptState | None") -> bool:
         if context is None:
             return False
         return isinstance(context.exception, self.exception_type)
@@ -79,7 +79,7 @@ class AttemptsExhausted(StopCondition):
             raise ValueError("max_attempts must be greater than 0")
         self.max_attempts = max_attempts
 
-    def is_met(self, context: "AttemptContext | None") -> bool:
+    def is_met(self, context: "AttemptState | None") -> bool:
         if context is None:
             return False
         return context.attempt >= self.max_attempts
@@ -93,7 +93,7 @@ class IntersectionStopCondition(StopCondition):
     def __init__(self, *conditions: StopCondition):
         self.conditions: tuple[StopCondition, ...] = conditions
 
-    def is_met(self, context: "AttemptContext | None") -> bool:
+    def is_met(self, context: "AttemptState | None") -> bool:
         return all(condition.is_met(context) for condition in self.conditions)
 
 
@@ -105,7 +105,7 @@ class UnionStopCondition(StopCondition):
     def __init__(self, *conditions: StopCondition):
         self.conditions: tuple[StopCondition, ...] = conditions
 
-    def is_met(self, context: "AttemptContext | None") -> bool:
+    def is_met(self, context: "AttemptState | None") -> bool:
         return any(condition.is_met(context) for condition in self.conditions)
 
 
@@ -117,7 +117,7 @@ class InvertedStopCondition(StopCondition):
     def __init__(self, condition: StopCondition):
         self.condition = condition
 
-    def is_met(self, context: "AttemptContext | None") -> bool:
+    def is_met(self, context: "AttemptState | None") -> bool:
         if context is None:
             return False
         return not self.condition.is_met(context)

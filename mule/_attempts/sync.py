@@ -2,26 +2,14 @@ from __future__ import annotations
 import datetime
 import time
 from types import TracebackType
-from typing_extensions import Protocol
 
 from mule.stop_conditions import NoException, StopCondition
+from .dataclasses import AttemptState
 
+from typing import TYPE_CHECKING
 
-class WaitTimeProvider(Protocol):
-    """
-    Protocol for callables that produce a wait time given the previous and next AttemptContext.
-
-    Args:
-        prev: The previous AttemptContext, or None if this is the first attempt.
-        next: The next AttemptContext (the one about to be run).
-
-    Returns:
-        The wait time as a timedelta, seconds (int/float), or None.
-    """
-
-    def __call__(
-        self, prev: "AttemptContext | None", next: "AttemptContext"
-    ) -> datetime.timedelta | int | float | None: ...
+if TYPE_CHECKING:
+    from .protocols import WaitTimeProvider  # pragma: no cover
 
 
 class AttemptGenerator:
@@ -34,7 +22,7 @@ class AttemptGenerator:
     def __init__(
         self,
         until: "StopCondition | None" = None,
-        wait: datetime.timedelta | int | float | None | WaitTimeProvider = None,
+        wait: "datetime.timedelta | int | float | None | WaitTimeProvider" = None,
     ):
         """
         Initialize the AttemptGenerator.
@@ -86,7 +74,10 @@ class AttemptGenerator:
         if attempt.attempt > 1 and self.wait:
             wait_time = self.wait
             if callable(wait_time):
-                wait_time = wait_time(self.last_attempt, attempt)
+                wait_time = wait_time(
+                    self.last_attempt.to_attempt_state() if self.last_attempt else None,
+                    attempt.to_attempt_state(),
+                )
             if wait_time is not None:
                 if isinstance(wait_time, datetime.timedelta):
                     time.sleep(wait_time.total_seconds())
@@ -94,7 +85,9 @@ class AttemptGenerator:
                     time.sleep(float(wait_time))
 
     def __next__(self) -> AttemptContext:
-        if self.stop_condition.is_met(self.last_attempt):
+        if self.stop_condition.is_met(
+            self.last_attempt.to_attempt_state() if self.last_attempt else None
+        ):
             if self.last_attempt and (last_exception := self.last_attempt.exception):
                 raise last_exception
             else:
@@ -128,6 +121,12 @@ class AttemptContext:
         if _exc_value:
             self.exception = _exc_value
             return True
+
+    def to_attempt_state(self) -> AttemptState:
+        return AttemptState(
+            attempt=self.attempt,
+            exception=self.exception,
+        )
 
 
 attempting = AttemptGenerator

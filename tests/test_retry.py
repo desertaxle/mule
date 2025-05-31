@@ -3,7 +3,7 @@ import datetime
 from unittest.mock import MagicMock, call
 
 import pytest
-from mule._attempts import AttemptContext
+from mule._attempts.dataclasses import AttemptState
 from mule._retry import retry, Retriable
 from mule.stop_conditions import AttemptsExhausted, StopCondition
 
@@ -91,7 +91,7 @@ class TestRetryDecorator:
 
     def test_retry_with_invalid_stop_condition(self):
         class NeverAttempt(StopCondition):
-            def is_met(self, context: AttemptContext | None) -> bool:
+            def is_met(self, context: AttemptState | None) -> bool:
                 return True
 
         @retry(until=NeverAttempt())
@@ -130,7 +130,7 @@ class TestRetryDecorator:
     ):
         attempts = 0
 
-        def exp_backoff(prev: AttemptContext | None, next: AttemptContext) -> int:
+        def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
             return 2 ** (next.attempt - 1)
 
         @retry(until=AttemptsExhausted(4), wait=exp_backoff)
@@ -156,7 +156,7 @@ class TestRetryDecorator:
     ):
         attempts = 0
 
-        def exp_backoff(prev: AttemptContext | None, next: AttemptContext) -> int:
+        def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
             return min(3 ** (next.attempt - 1), 7)
 
         @retry(until=AttemptsExhausted(5), wait=exp_backoff)

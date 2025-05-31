@@ -8,16 +8,19 @@ version = "0.1.0"
 description = "Add a stubborn streak to your code."
 readme = "README.md"
 requires-python = ">=3.9"
-dependencies = [
-    "typing-extensions>=4.13.2",
-]
+dependencies = ["typing-extensions>=4.13.2"]
 
 [dependency-groups]
 dev = [
     "pre-commit>=4.2.0",
     "pyright>=1.1.401",
     "pytest>=8.3.5",
+    "pytest-asyncio>=1.0.0",
     "pytest-cov>=6.1.1",
     "pytest-watcher>=0.4.3",
     "ruff>=0.11.10",
 ]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
