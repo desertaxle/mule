@@ -14,5 +14,4 @@ __all__ = [
     "attempting_async",
     "AsyncAttemptGenerator",
     "AsyncAttemptContext",
-    "WaitTimeProvider",
 ]
