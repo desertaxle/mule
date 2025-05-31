@@ -1,5 +1,6 @@
 import pytest
 
+from mule._attempts.dataclasses import AttemptState
 from mule.stop_conditions import (
     IntersectionStopCondition,
     AttemptsExhausted,
@@ -7,7 +8,6 @@ from mule.stop_conditions import (
     NoException,
     UnionStopCondition,
 )
-from mule._attempts import AttemptContext
 
 
 class TestStopCondition:
@@ -24,15 +24,15 @@ class TestAttemptsExhausted:
         stop_condition = AttemptsExhausted(3)
         assert stop_condition.is_met(None) is False
 
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = RuntimeError()
         assert stop_condition.is_met(context) is False
 
-        context = AttemptContext(attempt=2)
+        context = AttemptState(attempt=2)
         context.exception = RuntimeError()
         assert stop_condition.is_met(context) is False
 
-        context = AttemptContext(attempt=3)
+        context = AttemptState(attempt=3)
         context.exception = RuntimeError()
         assert stop_condition.is_met(context) is True
 
@@ -49,7 +49,7 @@ class TestNoException:
         stop_condition = NoException()
         assert stop_condition.is_met(None) is False
 
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = RuntimeError()
         assert stop_condition.is_met(context) is False
 
@@ -59,14 +59,14 @@ class TestExceptionMatches:
         stop_condition = ExceptionMatches(RuntimeError)
         assert stop_condition.is_met(None) is False
 
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = RuntimeError()
         assert stop_condition.is_met(context) is True
 
 
 class TestIntersectionStopCondition:
     def test_all_conditions_met(self):
-        context = AttemptContext(attempt=3)
+        context = AttemptState(attempt=3)
         context.exception = RuntimeError()
         stop_condition = IntersectionStopCondition(AttemptsExhausted(3), NoException())
         assert stop_condition.is_met(context) is False  # NoException not met
@@ -74,7 +74,7 @@ class TestIntersectionStopCondition:
         assert stop_condition.is_met(context) is True  # Both met
 
     def test_not_all_conditions_met(self):
-        context = AttemptContext(attempt=2)
+        context = AttemptState(attempt=2)
         context.exception = RuntimeError()
         stop_condition = IntersectionStopCondition(AttemptsExhausted(3), NoException())
         assert stop_condition.is_met(context) is False
@@ -85,32 +85,32 @@ class TestIntersectionStopCondition:
         assert isinstance(stop_condition, IntersectionStopCondition)
 
         # No exception, but the max attempts is not reached, so it should be false.
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         assert stop_condition.is_met(context) is False
 
         # Max attempts is reached, but there is an exception, so it should be false.
-        context = AttemptContext(attempt=3)
+        context = AttemptState(attempt=3)
         context.exception = RuntimeError()
         assert stop_condition.is_met(context) is False
 
         # No exception and the max attempts is reached, so it should be true.
-        context = AttemptContext(attempt=3)
+        context = AttemptState(attempt=3)
         context.exception = None
         assert stop_condition.is_met(context) is True
 
 
 class TestUnionStopCondition:
     def test_any_condition_met(self):
-        context = AttemptContext(attempt=3)
+        context = AttemptState(attempt=3)
         context.exception = RuntimeError()
         stop_condition = UnionStopCondition(AttemptsExhausted(3), NoException())
         assert stop_condition.is_met(context) is True  # AttemptsExhausted met
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = None
         assert stop_condition.is_met(context) is True  # NoException met
 
     def test_no_conditions_met(self):
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = RuntimeError()
         stop_condition = UnionStopCondition(AttemptsExhausted(3), NoException())
         assert stop_condition.is_met(context) is False
@@ -120,11 +120,11 @@ class TestUnionStopCondition:
         assert isinstance(stop_condition, UnionStopCondition)
 
         # No exception, so it should be true.
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         assert stop_condition.is_met(context) is True
 
         # Max attempts is reached, so it should be true.
-        context = AttemptContext(attempt=3)
+        context = AttemptState(attempt=3)
         context.exception = RuntimeError()
         assert stop_condition.is_met(context) is True
 
@@ -135,13 +135,13 @@ class TestComplexStopConditionCombinations:
         stop_condition = (AttemptsExhausted(3) & NoException()) | ExceptionMatches(
             ValueError
         )
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = RuntimeError()
         assert (
             stop_condition.is_met(context) is False
         )  # Neither AND nor ExceptionMatches(ValueError) met
 
-        context = AttemptContext(attempt=3)
+        context = AttemptState(attempt=3)
         context.exception = RuntimeError()
         assert (
             stop_condition.is_met(context) is False
@@ -150,7 +150,7 @@ class TestComplexStopConditionCombinations:
         context.exception = None
         assert stop_condition.is_met(context) is True  # AND met
 
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = ValueError()
         assert (
             stop_condition.is_met(context) is True
@@ -161,7 +161,7 @@ class TestComplexStopConditionCombinations:
         stop_condition = (AttemptsExhausted(3) | NoException()) & ExceptionMatches(
             ValueError
         )
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = RuntimeError()
         assert (
             stop_condition.is_met(context) is False
@@ -172,7 +172,7 @@ class TestComplexStopConditionCombinations:
             stop_condition.is_met(context) is False
         )  # ExceptionMatches(ValueError) met, NoException not met
 
-        context = AttemptContext(attempt=3)
+        context = AttemptState(attempt=3)
         context.exception = ValueError()
         assert (
             stop_condition.is_met(context) is True
@@ -183,7 +183,7 @@ class TestComplexStopConditionCombinations:
         stop_condition = (
             AttemptsExhausted(3) & NoException() & ExceptionMatches(ValueError)
         )
-        context = AttemptContext(attempt=3)
+        context = AttemptState(attempt=3)
         context.exception = ValueError()
         assert stop_condition.is_met(context) is False  # NoException not met
 
@@ -197,19 +197,19 @@ class TestComplexStopConditionCombinations:
         stop_condition = (
             AttemptsExhausted(3) | NoException() | ExceptionMatches(ValueError)
         )
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = RuntimeError()
         assert stop_condition.is_met(context) is False
 
-        context = AttemptContext(attempt=3)
+        context = AttemptState(attempt=3)
         context.exception = RuntimeError()
         assert stop_condition.is_met(context) is True  # AttemptsExhausted(3) met
 
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = None
         assert stop_condition.is_met(context) is True  # NoException met
 
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = ValueError()
         assert (
             stop_condition.is_met(context) is True
@@ -221,11 +221,11 @@ class TestInvertedStopCondition:
         stop_condition = ~ExceptionMatches(RuntimeError)
         assert stop_condition.is_met(None) is False
 
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = RuntimeError()
         assert stop_condition.is_met(context) is False
 
-        context = AttemptContext(attempt=1)
+        context = AttemptState(attempt=1)
         context.exception = ValueError()
         assert stop_condition.is_met(context) is True
 
