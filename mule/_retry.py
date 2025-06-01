@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from asyncio import iscoroutinefunction
 import datetime
 from functools import partial, update_wrapper
-from typing import Callable, Generic, TypeVar, cast, overload
+from typing import Awaitable, Callable, Generic, TypeVar, cast, overload
 from typing_extensions import ParamSpec
 
+from mule._attempts.aio import AsyncAttemptGenerator
 from mule.stop_conditions import StopCondition
 from mule._attempts import AttemptGenerator, WaitTimeProvider
 
@@ -44,6 +46,37 @@ class Retriable(Generic[P, R]):
         raise RuntimeError(
             "Failed to make a single attempt with the given stop condition"
         )
+
+
+class AsyncRetriable(Generic[P, R]):
+    """
+    A callable that retries a function until a stop condition is met.
+    """
+
+    def __init__(
+        self,
+        __fn: Callable[P, Awaitable[R]],
+        *,
+        until: StopCondition | None = None,
+        wait: datetime.timedelta | int | float | None | WaitTimeProvider = None,
+    ):
+        self.fn = __fn
+        update_wrapper(self, __fn)
+        self.attempting: AsyncAttemptGenerator = AsyncAttemptGenerator(
+            until=until, wait=wait
+        )
+
+    def __call__(self, *args: P.args, **kwargs: P.kwargs) -> Awaitable[R]:
+        async def _call():
+            async for attempt in self.attempting:
+                async with attempt:
+                    return await self.fn(*args, **kwargs)
+
+            raise RuntimeError(
+                "Failed to make a single attempt with the given stop condition"
+            )
+
+        return _call()
 
 
 @overload
@@ -130,5 +163,7 @@ def retry(
             ],
             partial(retry, until=until, wait=wait),
         )
+    elif iscoroutinefunction(__fn):
+        return AsyncRetriable(__fn, until=until, wait=wait)
     else:
         return Retriable(__fn, until=until, wait=wait)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 import datetime
-from unittest.mock import MagicMock, call
+from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 from mule._attempts.dataclasses import AttemptState
@@ -55,125 +55,250 @@ class TestRetriable:
 
 
 class TestRetryDecorator:
-    @pytest.fixture
-    def mock_sleep(self, monkeypatch: pytest.MonkeyPatch):
-        mock_sleep = MagicMock()
-        monkeypatch.setattr("time.sleep", mock_sleep)
-        return mock_sleep
+    class TestSync:
+        @pytest.fixture
+        def mock_sleep(self, monkeypatch: pytest.MonkeyPatch):
+            mock_sleep = MagicMock()
+            monkeypatch.setattr("time.sleep", mock_sleep)
+            return mock_sleep
 
-    def test_retry_decorator_success(self):
-        @retry(until=AttemptsExhausted(2))
-        def f(x: int) -> int:
-            return x + 1
+        def test_retry_decorator_success(self):
+            @retry(until=AttemptsExhausted(2))
+            def f(x: int) -> int:
+                return x + 1
 
-        assert f(2) == 3
+            assert f(2) == 3
 
-    def test_retry_decorator_eventual_success(self):
-        attempts = 0
+        def test_retry_decorator_eventual_success(self):
+            attempts = 0
 
-        @retry(until=AttemptsExhausted(3))
-        def f(x: int) -> int:
-            nonlocal attempts
-            attempts += 1
-            if attempts < 2:
-                raise Exception("fail")
-            return x
+            @retry(until=AttemptsExhausted(3))
+            def f(x: int) -> int:
+                nonlocal attempts
+                attempts += 1
+                if attempts < 2:
+                    raise Exception("fail")
+                return x
 
-        assert f(7) == 7
-        assert attempts == 2
+            assert f(7) == 7
+            assert attempts == 2
 
-    def test_retry_decorator_no_until(self):
-        @retry
-        def f(x: int) -> int:
-            return x * 3
+        def test_retry_decorator_no_until(self):
+            @retry
+            def f(x: int) -> int:
+                return x * 3
 
-        assert f(3) == 9
+            assert f(3) == 9
 
-    def test_retry_with_invalid_stop_condition(self):
-        class NeverAttempt(StopCondition):
-            def is_met(self, context: AttemptState | None) -> bool:
-                return True
+        def test_retry_with_invalid_stop_condition(self):
+            class NeverAttempt(StopCondition):
+                def is_met(self, context: AttemptState | None) -> bool:
+                    return True
 
-        @retry(until=NeverAttempt())
-        def f(x: int) -> int:
-            return x * 3
+            @retry(until=NeverAttempt())
+            def f(x: int) -> int:
+                return x * 3
 
-        with pytest.raises(
-            RuntimeError,
-            match="Failed to make a single attempt with the given stop condition",
+            with pytest.raises(
+                RuntimeError,
+                match="Failed to make a single attempt with the given stop condition",
+            ):
+                f(3)
+
+        @pytest.mark.parametrize("wait", [5, datetime.timedelta(minutes=5), 5.0])
+        def test_retry_decorator_with_wait(
+            self, wait: int | float | datetime.timedelta, mock_sleep: MagicMock
         ):
-            f(3)
+            attempts = 0
 
-    @pytest.mark.parametrize("wait", [5, datetime.timedelta(minutes=5), 5.0])
-    def test_retry_decorator_with_wait(
-        self, wait: int | float | datetime.timedelta, mock_sleep: MagicMock
-    ):
-        attempts = 0
+            @retry(until=AttemptsExhausted(3), wait=wait)
+            def f(x: int) -> int:
+                nonlocal attempts
+                attempts += 1
+                if attempts < 2:
+                    raise Exception("fail")
+                return x * 3
 
-        @retry(until=AttemptsExhausted(3), wait=wait)
-        def f(x: int) -> int:
-            nonlocal attempts
-            attempts += 1
-            if attempts < 2:
-                raise Exception("fail")
-            return x * 3
+            assert f(3) == 9
 
-        assert f(3) == 9
+            if isinstance(wait, datetime.timedelta):
+                mock_sleep.assert_called_once_with(wait.total_seconds())
+            else:
+                mock_sleep.assert_called_once_with(wait)
 
-        if isinstance(wait, datetime.timedelta):
-            mock_sleep.assert_called_once_with(wait.total_seconds())
-        else:
-            mock_sleep.assert_called_once_with(wait)
+        def test_retry_decorator_with_exponential_backoff_callable(
+            self, mock_sleep: MagicMock
+        ):
+            attempts = 0
 
-    def test_retry_decorator_with_exponential_backoff_callable(
-        self, mock_sleep: MagicMock
-    ):
-        attempts = 0
+            def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
+                return 2 ** (next.attempt - 1)
 
-        def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
-            return 2 ** (next.attempt - 1)
+            @retry(until=AttemptsExhausted(4), wait=exp_backoff)
+            def f(x: int) -> int:
+                nonlocal attempts
+                attempts += 1
+                if attempts < 4:
+                    raise Exception("fail")
+                return x
 
-        @retry(until=AttemptsExhausted(4), wait=exp_backoff)
-        def f(x: int) -> int:
-            nonlocal attempts
-            attempts += 1
-            if attempts < 4:
-                raise Exception("fail")
-            return x
+            assert f(5) == 5
+            # Should sleep 2, 4, 8 seconds (for attempts 2, 3, 4)
+            mock_sleep.assert_has_calls(
+                [
+                    call(2),
+                    call(4),
+                    call(8),
+                ]
+            )
 
-        assert f(5) == 5
-        # Should sleep 2, 4, 8 seconds (for attempts 2, 3, 4)
-        mock_sleep.assert_has_calls(
-            [
-                call(2),
-                call(4),
-                call(8),
-            ]
-        )
+        def test_retry_decorator_with_exponential_backoff_callable_and_max_wait(
+            self, mock_sleep: MagicMock
+        ):
+            attempts = 0
 
-    def test_retry_decorator_with_exponential_backoff_callable_and_max_wait(
-        self, mock_sleep: MagicMock
-    ):
-        attempts = 0
+            def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
+                return min(3 ** (next.attempt - 1), 7)
 
-        def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
-            return min(3 ** (next.attempt - 1), 7)
+            @retry(until=AttemptsExhausted(5), wait=exp_backoff)
+            def f(x: int) -> int:
+                nonlocal attempts
+                attempts += 1
+                if attempts < 5:
+                    raise Exception("fail")
+                return x
 
-        @retry(until=AttemptsExhausted(5), wait=exp_backoff)
-        def f(x: int) -> int:
-            nonlocal attempts
-            attempts += 1
-            if attempts < 5:
-                raise Exception("fail")
-            return x
+            assert f(10) == 10
+            # Should sleep 3, 7, 7, 7 (capped at max_wait=7)
+            mock_sleep.assert_has_calls(
+                [
+                    call(3),
+                    call(7),
+                    call(7),
+                    call(7),
+                ]
+            )
 
-        assert f(10) == 10
-        # Should sleep 3, 7, 7, 7 (capped at max_wait=7)
-        mock_sleep.assert_has_calls(
-            [
-                call(3),
-                call(7),
-                call(7),
-                call(7),
-            ]
-        )
+    class TestAsync:
+        @pytest.fixture
+        def mock_sleep(self, monkeypatch: pytest.MonkeyPatch):
+            mock_sleep = AsyncMock()
+            monkeypatch.setattr("asyncio.sleep", mock_sleep)
+            return mock_sleep
+
+        async def test_retry_decorator_success(self):
+            @retry(until=AttemptsExhausted(2))
+            async def f(x: int) -> int:
+                return x + 1
+
+            assert await f(2) == 3
+
+        async def test_retry_decorator_eventual_success(self):
+            attempts = 0
+
+            @retry(until=AttemptsExhausted(3))
+            async def f(x: int) -> int:
+                nonlocal attempts
+                attempts += 1
+                if attempts < 2:
+                    raise Exception("fail")
+                return x
+
+            assert await f(7) == 7
+            assert attempts == 2
+
+        async def test_retry_decorator_no_until(self):
+            @retry
+            async def f(x: int) -> int:
+                return x * 3
+
+            assert await f(3) == 9
+
+        async def test_retry_with_invalid_stop_condition(self):
+            class NeverAttempt(StopCondition):
+                def is_met(self, context: AttemptState | None) -> bool:
+                    return True
+
+            @retry(until=NeverAttempt())
+            async def f(x: int) -> int:
+                return x * 3
+
+            with pytest.raises(
+                RuntimeError,
+                match="Failed to make a single attempt with the given stop condition",
+            ):
+                await f(3)
+
+        @pytest.mark.parametrize("wait", [5, datetime.timedelta(minutes=5), 5.0])
+        async def test_retry_decorator_with_wait(
+            self, wait: int | float | datetime.timedelta, mock_sleep: AsyncMock
+        ):
+            attempts = 0
+
+            @retry(until=AttemptsExhausted(3), wait=wait)
+            async def f(x: int) -> int:
+                nonlocal attempts
+                attempts += 1
+                if attempts < 2:
+                    raise Exception("fail")
+                return x * 3
+
+            assert await f(3) == 9
+
+            if isinstance(wait, datetime.timedelta):
+                mock_sleep.assert_called_once_with(wait.total_seconds())
+            else:
+                mock_sleep.assert_called_once_with(wait)
+
+        async def test_retry_decorator_with_exponential_backoff_callable(
+            self, mock_sleep: AsyncMock
+        ):
+            attempts = 0
+
+            def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
+                return 2 ** (next.attempt - 1)
+
+            @retry(until=AttemptsExhausted(4), wait=exp_backoff)
+            async def f(x: int) -> int:
+                nonlocal attempts
+                attempts += 1
+                if attempts < 4:
+                    raise Exception("fail")
+                return x
+
+            assert await f(5) == 5
+            # Should sleep 2, 4, 8 seconds (for attempts 2, 3, 4)
+            mock_sleep.assert_has_calls(
+                [
+                    call(2),
+                    call(4),
+                    call(8),
+                ]
+            )
+
+        async def test_retry_decorator_with_exponential_backoff_callable_and_max_wait(
+            self, mock_sleep: AsyncMock
+        ):
+            attempts = 0
+
+            def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
+                return min(3 ** (next.attempt - 1), 7)
+
+            @retry(until=AttemptsExhausted(5), wait=exp_backoff)
+            async def f(x: int) -> int:
+                nonlocal attempts
+                attempts += 1
+                if attempts < 5:
+                    raise Exception("fail")
+                return x
+
+            assert await f(10) == 10
+            # Should sleep 3, 7, 7, 7 (capped at max_wait=7)
+            mock_sleep.assert_has_calls(
+                [
+                    call(3),
+                    call(7),
+                    call(7),
+                    call(7),
+                ]
+            )
