@@ -37,7 +37,6 @@ class Retriable(Generic[P, R]):
         update_wrapper(self, __fn)
         self.until = until
         self.wait = wait
-        self.attempting: AttemptGenerator = AttemptGenerator(until=until, wait=wait)
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
         if iscoroutinefunction(self.fn):
