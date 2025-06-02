@@ -2,11 +2,12 @@ from __future__ import annotations
 
 import datetime
 from functools import partial, update_wrapper
-from typing import Callable, Generic, TypeVar, cast, overload
+from inspect import iscoroutinefunction
+from typing import TYPE_CHECKING, Awaitable, Callable, Generic, TypeVar, cast, overload
 from typing_extensions import ParamSpec
 
 from mule.stop_conditions import StopCondition
-from mule._attempts import AttemptGenerator, WaitTimeProvider
+from mule._attempts import AttemptGenerator, AsyncAttemptGenerator, WaitTimeProvider
 
 
 P = ParamSpec("P")
@@ -34,16 +35,37 @@ class Retriable(Generic[P, R]):
     ):
         self.fn = __fn
         update_wrapper(self, __fn)
-        self.attempting: AttemptGenerator = AttemptGenerator(until=until, wait=wait)
+        self.until = until
+        self.wait = wait
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
-        for attempt in self.attempting:
+        if iscoroutinefunction(self.fn):
+            return self._call_async(*args, **kwargs)  # pyright: ignore[reportReturnType]
+
+        for attempt in AttemptGenerator(until=self.until, wait=self.wait):
             with attempt:
                 return self.fn(*args, **kwargs)
 
         raise RuntimeError(
             "Failed to make a single attempt with the given stop condition"
         )
+
+    def _call_async(self, *args: P.args, **kwargs: P.kwargs) -> Awaitable[R]:
+        async def _call() -> R:
+            async for attempt in AsyncAttemptGenerator(
+                until=self.until, wait=self.wait
+            ):
+                async with attempt:
+                    if TYPE_CHECKING:
+                        assert iscoroutinefunction(self.fn)  # pragma: no cover
+
+                    return await self.fn(*args, **kwargs)
+
+            raise RuntimeError(
+                "Failed to make a single attempt with the given stop condition"
+            )
+
+        return _call()
 
 
 @overload
