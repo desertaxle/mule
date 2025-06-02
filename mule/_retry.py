@@ -58,7 +58,7 @@ class Retriable(Generic[P, R]):
             ):
                 async with attempt:
                     if TYPE_CHECKING:
-                        assert iscoroutinefunction(self.fn)
+                        assert iscoroutinefunction(self.fn)  # pragma: no cover
 
                     return await self.fn(*args, **kwargs)
 
