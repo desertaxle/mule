@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 from functools import partial, update_wrapper
 from inspect import iscoroutinefunction
-from typing import Awaitable, Callable, Generic, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Awaitable, Callable, Generic, TypeVar, cast, overload
 from typing_extensions import ParamSpec
 
 from mule.stop_conditions import StopCondition
@@ -57,6 +57,9 @@ class Retriable(Generic[P, R]):
                 until=self.until, wait=self.wait
             ):
                 async with attempt:
+                    if TYPE_CHECKING:
+                        assert iscoroutinefunction(self.fn)
+
                     return await self.fn(*args, **kwargs)
 
             raise RuntimeError(
