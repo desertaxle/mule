@@ -6,7 +6,7 @@ from types import TracebackType
 from mule.stop_conditions import NoException, StopCondition
 from .dataclasses import AttemptState
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable, Sequence
 
 if TYPE_CHECKING:
     from .protocols import WaitTimeProvider  # pragma: no cover
@@ -21,8 +21,14 @@ class AttemptGenerator:
 
     def __init__(
         self,
+        *,
         until: "StopCondition | None" = None,
         wait: "datetime.timedelta | int | float | None | WaitTimeProvider" = None,
+        before_attempt: Sequence[Callable[[AttemptState], None]] = tuple(),
+        on_success: Sequence[Callable[[AttemptState], None]] = tuple(),
+        on_failure: Sequence[Callable[[AttemptState], None]] = tuple(),
+        before_wait: Sequence[Callable[[AttemptState], None]] = tuple(),
+        after_wait: Sequence[Callable[[AttemptState], None]] = tuple(),
     ):
         """
         Initialize the AttemptGenerator.
@@ -38,6 +44,11 @@ class AttemptGenerator:
             self.stop_condition: "StopCondition" = until | NoException()
         self.wait = wait
         self._attempts: list[AttemptContext] = []
+        self.before_attempt = before_attempt
+        self.on_success = on_success
+        self.on_failure = on_failure
+        self.before_wait = before_wait
+        self.after_wait = after_wait
 
     @property
     def last_attempt(self) -> AttemptContext | None:
@@ -53,11 +64,21 @@ class AttemptGenerator:
         Get the next attempt context.
         """
         if not self.last_attempt:
-            next_attempt = AttemptContext(1)
+            next_attempt = AttemptContext(
+                attempt=1,
+                before_attempt=self.before_attempt,
+                on_success=self.on_success,
+                on_failure=self.on_failure,
+            )
             self._attempts.append(next_attempt)
             return next_attempt
         else:
-            next_attempt = AttemptContext(self.last_attempt.attempt + 1)
+            next_attempt = AttemptContext(
+                attempt=self.last_attempt.attempt + 1,
+                before_attempt=self.before_attempt,
+                on_success=self.on_success,
+                on_failure=self.on_failure,
+            )
             self._attempts.append(next_attempt)
             return next_attempt
 
@@ -79,10 +100,16 @@ class AttemptGenerator:
                     attempt.to_attempt_state(),
                 )
             if wait_time is not None:
+                for callback in self.before_wait:
+                    state = attempt.to_attempt_state()
+                    callback(state)
                 if isinstance(wait_time, datetime.timedelta):
                     time.sleep(wait_time.total_seconds())
                 else:
                     time.sleep(float(wait_time))
+                for callback in self.after_wait:
+                    state = attempt.to_attempt_state()
+                    callback(state)
 
     def __next__(self) -> AttemptContext:
         if self.stop_condition.is_met(
@@ -105,11 +132,23 @@ class AttemptContext:
     The attempt context is used to track the attempt number and the exception that occurred.
     """
 
-    def __init__(self, attempt: int):
+    def __init__(
+        self,
+        attempt: int,
+        before_attempt: Sequence[Callable[[AttemptState], None]] = tuple(),
+        on_success: Sequence[Callable[[AttemptState], None]] = tuple(),
+        on_failure: Sequence[Callable[[AttemptState], None]] = tuple(),
+    ):
         self.attempt = attempt
         self.exception: BaseException | None = None
+        self.before_attempt = before_attempt
+        self.on_success = on_success
+        self.on_failure = on_failure
 
     def __enter__(self) -> AttemptContext:
+        for callback in self.before_attempt:
+            state = self.to_attempt_state()
+            callback(state)
         return self
 
     def __exit__(
@@ -120,7 +159,14 @@ class AttemptContext:
     ) -> bool | None:
         if _exc_value:
             self.exception = _exc_value
-            return True
+            for callback in self.on_failure:
+                state = self.to_attempt_state()
+                callback(state)
+        else:
+            for callback in self.on_success:
+                state = self.to_attempt_state()
+                callback(state)
+        return True
 
     def to_attempt_state(self) -> AttemptState:
         return AttemptState(

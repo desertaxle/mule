@@ -1,13 +1,27 @@
 from __future__ import annotations
 
 import datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, call
 import pytest
 
 from mule import attempting, attempting_async
 from mule._attempts import AttemptGenerator, AsyncAttemptGenerator
 from mule._attempts.dataclasses import AttemptState
 from mule.stop_conditions import AttemptsExhausted, NoException
+
+
+@pytest.fixture
+def mock_sleep(monkeypatch: pytest.MonkeyPatch):
+    mock_sleep = MagicMock()
+    monkeypatch.setattr("time.sleep", mock_sleep)
+    return mock_sleep
+
+
+@pytest.fixture
+def mock_async_sleep(monkeypatch: pytest.MonkeyPatch):
+    mock_sleep = AsyncMock()
+    monkeypatch.setattr("asyncio.sleep", mock_sleep)
+    return mock_sleep
 
 
 class TestAttemptGenerator:
@@ -75,12 +89,6 @@ class TestAsyncAttempting:
 
 
 class TestWait:
-    @pytest.fixture
-    def mock_sleep(self, monkeypatch: pytest.MonkeyPatch):
-        mock_sleep = MagicMock()
-        monkeypatch.setattr("time.sleep", mock_sleep)
-        return mock_sleep
-
     @pytest.mark.parametrize("wait", [5, datetime.timedelta(minutes=5), 5.0])
     def test_wait(self, wait: int | float | datetime.timedelta, mock_sleep: MagicMock):
         attempts = 0
@@ -109,18 +117,19 @@ class TestWait:
                     raise Exception("fail")
 
         assert attempts == 4
+        mock_sleep.assert_has_calls(
+            [
+                call(2.0),
+                call(4.0),
+                call(8.0),
+            ]
+        )
 
 
 class TestAsyncWait:
-    @pytest.fixture
-    def mock_sleep(self, monkeypatch: pytest.MonkeyPatch):
-        mock_sleep = AsyncMock()
-        monkeypatch.setattr("asyncio.sleep", mock_sleep)
-        return mock_sleep
-
     @pytest.mark.parametrize("wait", [5, datetime.timedelta(minutes=5), 5.0])
     async def test_wait(
-        self, wait: int | float | datetime.timedelta, mock_sleep: AsyncMock
+        self, wait: int | float | datetime.timedelta, mock_async_sleep: AsyncMock
     ):
         attempts = 0
         async for attempt in attempting_async(until=AttemptsExhausted(3), wait=wait):
@@ -130,11 +139,13 @@ class TestAsyncWait:
                     raise Exception("Test exception")
 
         if isinstance(wait, datetime.timedelta):
-            mock_sleep.assert_awaited_once_with(wait.total_seconds())
+            mock_async_sleep.assert_awaited_once_with(wait.total_seconds())
         else:
-            mock_sleep.assert_awaited_once_with(wait)
+            mock_async_sleep.assert_awaited_once_with(wait)
 
-    async def test_wait_with_exponential_backoff_callable(self, mock_sleep: AsyncMock):
+    async def test_wait_with_exponential_backoff_callable(
+        self, mock_async_sleep: AsyncMock
+    ):
         attempts = 0
 
         def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
@@ -150,3 +161,94 @@ class TestAsyncWait:
                     raise Exception("fail")
 
         assert attempts == 4
+        mock_async_sleep.assert_has_calls(
+            [
+                call(2.0),
+                call(4.0),
+                call(8.0),
+            ]
+        )
+
+
+class TestAttemptingHooks:
+    def test_before_attempt(self):
+        attempts = 0
+        spy = MagicMock()
+        for attempt in attempting(until=AttemptsExhausted(3), before_attempt=[spy]):
+            with attempt:
+                attempts += 1
+                if attempts < 2:
+                    raise Exception("Test exception")
+
+        assert attempts == 2
+        spy.assert_has_calls(
+            [
+                call(AttemptState(attempt=1, exception=None)),
+                call(AttemptState(attempt=2, exception=None)),
+            ]
+        )
+
+    def test_on_success(self):
+        attempts = 0
+        spy = MagicMock()
+        for attempt in attempting(until=AttemptsExhausted(3), on_success=[spy]):
+            with attempt:
+                attempts += 1
+                if attempts < 2:
+                    raise Exception("Test exception")
+
+        assert attempts == 2
+        spy.assert_called_once_with(AttemptState(attempt=2, exception=None))
+
+    def test_on_failure(self):
+        attempts = 0
+        spy = MagicMock()
+        exception = Exception("Test exception")
+        with pytest.raises(Exception):
+            for attempt in attempting(until=AttemptsExhausted(3), on_failure=[spy]):
+                with attempt:
+                    attempts += 1
+                    raise exception
+
+        assert attempts == 3
+        spy.assert_has_calls(
+            [
+                call(AttemptState(attempt=1, exception=exception)),
+                call(AttemptState(attempt=2, exception=exception)),
+                call(AttemptState(attempt=3, exception=exception)),
+            ]
+        )
+
+    def test_before_wait(self, mock_sleep: MagicMock):
+        attempts = 0
+        spy = MagicMock()
+        for attempt in attempting(
+            until=AttemptsExhausted(3), wait=1, before_wait=[spy]
+        ):
+            with attempt:
+                attempts += 1
+                if attempts < 2:
+                    raise Exception("Test exception")
+
+        assert attempts == 2
+        spy.assert_has_calls(
+            [
+                call(AttemptState(attempt=2, exception=None)),
+            ]
+        )
+
+    def test_after_wait(self, mock_sleep: MagicMock):
+        attempts = 0
+        spy = MagicMock()
+        for attempt in attempting(until=AttemptsExhausted(3), wait=1, after_wait=[spy]):
+            with attempt:
+                attempts += 1
+                if attempts < 2:
+                    raise Exception("Test exception")
+
+        assert attempts == 2
+        spy.assert_has_calls(
+            [
+                call(AttemptState(attempt=2, exception=None)),
+            ]
+        )
