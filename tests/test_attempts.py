@@ -219,7 +219,8 @@ class TestAttemptingHooks:
             ]
         )
 
-    def test_before_wait(self, mock_sleep: MagicMock):
+    @pytest.mark.usefixtures("mock_sleep")
+    def test_before_wait(self):
         attempts = 0
         spy = MagicMock()
         for attempt in attempting(
@@ -237,7 +238,8 @@ class TestAttemptingHooks:
             ]
         )
 
-    def test_after_wait(self, mock_sleep: MagicMock):
+    @pytest.mark.usefixtures("mock_sleep")
+    def test_after_wait(self):
         attempts = 0
         spy = MagicMock()
         for attempt in attempting(until=AttemptsExhausted(3), wait=1, after_wait=[spy]):
@@ -252,3 +254,33 @@ class TestAttemptingHooks:
                 call(AttemptState(attempt=2, exception=None)),
             ]
         )
+
+    @pytest.mark.usefixtures("mock_sleep")
+    def test_hook_failure_does_not_stop_execution(
+        self, caplog: pytest.LogCaptureFixture
+    ):
+        def failing_hook(state: AttemptState):
+            raise Exception("Test exception")
+
+        attempts = 0
+
+        for attempt in attempting(
+            until=AttemptsExhausted(3),
+            wait=1,
+            before_attempt=[failing_hook],
+            on_success=[failing_hook],
+            on_failure=[failing_hook],
+            after_wait=[failing_hook],
+            before_wait=[failing_hook],
+        ):
+            with attempt:
+                attempts += 1
+                if attempts < 2:
+                    raise Exception("Test exception")
+
+        assert attempts == 2
+        assert "Error calling before_wait hook failing_hook" in caplog.text
+        assert "Error calling after_wait hook failing_hook" in caplog.text
+        assert "Error calling on_failure hook failing_hook" in caplog.text
+        assert "Error calling on_success hook failing_hook" in caplog.text
+        assert "Error calling before_attempt hook failing_hook" in caplog.text
