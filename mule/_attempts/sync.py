@@ -1,15 +1,18 @@
 from __future__ import annotations
 import datetime
+import logging
 import time
 from types import TracebackType
 
 from mule.stop_conditions import NoException, StopCondition
 from .dataclasses import AttemptState
 
-from typing import TYPE_CHECKING, Callable, Sequence
+from typing import TYPE_CHECKING, Callable, Literal, Sequence
 
 if TYPE_CHECKING:
     from .protocols import WaitTimeProvider  # pragma: no cover
+
+_logger = logging.getLogger("mule")
 
 
 class AttemptGenerator:
@@ -85,6 +88,23 @@ class AttemptGenerator:
     def __iter__(self) -> AttemptGenerator:
         return self
 
+    def _call_hooks(
+        self, attempt: AttemptContext, hooks_type: Literal["before_wait", "after_wait"]
+    ) -> None:
+        default_hooks: Sequence[Callable[[AttemptState], None]] = tuple()
+        hooks: Sequence[Callable[[AttemptState], None]] = getattr(
+            self, hooks_type, default_hooks
+        )
+        for callback in hooks:
+            try:
+                state = attempt.to_attempt_state()
+                callback(state)
+            except Exception as e:
+                _logger.error(
+                    f"Error calling {hooks_type} hook {callback.__name__}", exc_info=e
+                )
+                continue
+
     def _wait_for_next_attempt(self, attempt: "AttemptContext") -> None:
         """
         Wait for the appropriate amount of time before the next attempt, if needed.
@@ -100,16 +120,12 @@ class AttemptGenerator:
                     attempt.to_attempt_state(),
                 )
             if wait_time is not None:
-                for callback in self.before_wait:
-                    state = attempt.to_attempt_state()
-                    callback(state)
+                self._call_hooks(attempt, "before_wait")
                 if isinstance(wait_time, datetime.timedelta):
                     time.sleep(wait_time.total_seconds())
                 else:
                     time.sleep(float(wait_time))
-                for callback in self.after_wait:
-                    state = attempt.to_attempt_state()
-                    callback(state)
+                self._call_hooks(attempt, "after_wait")
 
     def __next__(self) -> AttemptContext:
         if self.stop_condition.is_met(
@@ -145,10 +161,25 @@ class AttemptContext:
         self.on_success = on_success
         self.on_failure = on_failure
 
+    def _call_hooks(
+        self, hooks_type: Literal["before_attempt", "on_success", "on_failure"]
+    ) -> None:
+        default_hooks: Sequence[Callable[[AttemptState], None]] = tuple()
+        hooks: Sequence[Callable[[AttemptState], None]] = getattr(
+            self, hooks_type, default_hooks
+        )
+        for callback in hooks:
+            try:
+                state = self.to_attempt_state()
+                callback(state)
+            except Exception as e:
+                _logger.error(
+                    f"Error calling {hooks_type} hook {callback.__name__}", exc_info=e
+                )
+                continue
+
     def __enter__(self) -> AttemptContext:
-        for callback in self.before_attempt:
-            state = self.to_attempt_state()
-            callback(state)
+        self._call_hooks("before_attempt")
         return self
 
     def __exit__(
@@ -159,13 +190,9 @@ class AttemptContext:
     ) -> bool | None:
         if _exc_value:
             self.exception = _exc_value
-            for callback in self.on_failure:
-                state = self.to_attempt_state()
-                callback(state)
+            self._call_hooks("on_failure")
         else:
-            for callback in self.on_success:
-                state = self.to_attempt_state()
-                callback(state)
+            self._call_hooks("on_success")
         return True
 
     def to_attempt_state(self) -> AttemptState:
