@@ -33,7 +33,7 @@ class AttemptHook(Protocol):
         state: The AttemptState.
     """
 
-    def __call__(self, state: "AttemptState | None") -> None: ...
+    def __call__(self, state: "AttemptState") -> None: ...
 
     __name__: str
 
@@ -46,6 +46,6 @@ class AsyncAttemptHook(Protocol):
         state: The AttemptState.
     """
 
-    async def __call__(self, state: "AttemptState | None") -> None: ...
+    async def __call__(self, state: "AttemptState") -> None: ...
 
     __name__: str
