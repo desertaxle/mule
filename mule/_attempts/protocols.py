@@ -23,3 +23,29 @@ class WaitTimeProvider(Protocol):
     def __call__(
         self, prev: "AttemptState | None", next: "AttemptState"
     ) -> datetime.timedelta | int | float | None: ...
+
+
+class AttemptHook(Protocol):
+    """
+    Protocol for callables that are called at various points in the attempt lifecycle.
+
+    Args:
+        state: The AttemptState.
+    """
+
+    def __call__(self, state: "AttemptState") -> None: ...
+
+    __name__: str
+
+
+class AsyncAttemptHook(Protocol):
+    """
+    Protocol for async callables that are called at various points in the attempt lifecycle.
+
+    Args:
+        state: The AttemptState.
+    """
+
+    async def __call__(self, state: "AttemptState") -> None: ...
+
+    __name__: str

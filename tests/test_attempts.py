@@ -171,116 +171,283 @@ class TestAsyncWait:
 
 
 class TestAttemptingHooks:
-    def test_before_attempt(self):
-        attempts = 0
-        spy = MagicMock()
-        for attempt in attempting(until=AttemptsExhausted(3), before_attempt=[spy]):
-            with attempt:
-                attempts += 1
-                if attempts < 2:
-                    raise Exception("Test exception")
-
-        assert attempts == 2
-        spy.assert_has_calls(
-            [
-                call(AttemptState(attempt=1, exception=None)),
-                call(AttemptState(attempt=2, exception=None)),
-            ]
-        )
-
-    def test_on_success(self):
-        attempts = 0
-        spy = MagicMock()
-        for attempt in attempting(until=AttemptsExhausted(3), on_success=[spy]):
-            with attempt:
-                attempts += 1
-                if attempts < 2:
-                    raise Exception("Test exception")
-
-        assert attempts == 2
-        spy.assert_called_once_with(AttemptState(attempt=2, exception=None))
-
-    def test_on_failure(self):
-        attempts = 0
-        spy = MagicMock()
-        exception = Exception("Test exception")
-        with pytest.raises(Exception):
-            for attempt in attempting(until=AttemptsExhausted(3), on_failure=[spy]):
+    class TestSync:
+        def test_before_attempt(self):
+            attempts = 0
+            spy = MagicMock()
+            for attempt in attempting(until=AttemptsExhausted(3), before_attempt=[spy]):
                 with attempt:
                     attempts += 1
-                    raise exception
+                    if attempts < 2:
+                        raise Exception("Test exception")
 
-        assert attempts == 3
-        spy.assert_has_calls(
-            [
-                call(AttemptState(attempt=1, exception=exception)),
-                call(AttemptState(attempt=2, exception=exception)),
-                call(AttemptState(attempt=3, exception=exception)),
-            ]
-        )
+            assert attempts == 2
+            spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=1, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
 
-    @pytest.mark.usefixtures("mock_sleep")
-    def test_before_wait(self):
-        attempts = 0
-        spy = MagicMock()
-        for attempt in attempting(
-            until=AttemptsExhausted(3), wait=1, before_wait=[spy]
+        def test_on_success(self):
+            attempts = 0
+            spy = MagicMock()
+            for attempt in attempting(until=AttemptsExhausted(3), on_success=[spy]):
+                with attempt:
+                    attempts += 1
+                    if attempts < 2:
+                        raise Exception("Test exception")
+
+            assert attempts == 2
+            spy.assert_called_once_with(state=AttemptState(attempt=2, exception=None))
+
+        def test_on_failure(self):
+            attempts = 0
+            spy = MagicMock()
+            exception = Exception("Test exception")
+            with pytest.raises(Exception):
+                for attempt in attempting(until=AttemptsExhausted(3), on_failure=[spy]):
+                    with attempt:
+                        attempts += 1
+                        raise exception
+
+            assert attempts == 3
+            spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=1, exception=exception)),
+                    call(state=AttemptState(attempt=2, exception=exception)),
+                    call(state=AttemptState(attempt=3, exception=exception)),
+                ]
+            )
+
+        @pytest.mark.usefixtures("mock_sleep")
+        def test_before_wait(self):
+            attempts = 0
+            spy = MagicMock()
+            for attempt in attempting(
+                until=AttemptsExhausted(3), wait=1, before_wait=[spy]
+            ):
+                with attempt:
+                    attempts += 1
+                    if attempts < 2:
+                        raise Exception("Test exception")
+
+            assert attempts == 2
+            spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
+
+        @pytest.mark.usefixtures("mock_sleep")
+        def test_after_wait(self):
+            attempts = 0
+            spy = MagicMock()
+            for attempt in attempting(
+                until=AttemptsExhausted(3), wait=1, after_wait=[spy]
+            ):
+                with attempt:
+                    attempts += 1
+                    if attempts < 2:
+                        raise Exception("Test exception")
+
+            assert attempts == 2
+            spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
+
+        @pytest.mark.usefixtures("mock_sleep")
+        def test_hook_failure_does_not_stop_execution(
+            self, caplog: pytest.LogCaptureFixture
         ):
-            with attempt:
-                attempts += 1
-                if attempts < 2:
-                    raise Exception("Test exception")
+            def failing_hook(state: AttemptState | None):
+                raise Exception("Test exception")
 
-        assert attempts == 2
-        spy.assert_has_calls(
-            [
-                call(AttemptState(attempt=2, exception=None)),
-            ]
-        )
+            attempts = 0
 
-    @pytest.mark.usefixtures("mock_sleep")
-    def test_after_wait(self):
-        attempts = 0
-        spy = MagicMock()
-        for attempt in attempting(until=AttemptsExhausted(3), wait=1, after_wait=[spy]):
-            with attempt:
-                attempts += 1
-                if attempts < 2:
-                    raise Exception("Test exception")
+            for attempt in attempting(
+                until=AttemptsExhausted(3),
+                wait=1,
+                before_attempt=[failing_hook],
+                on_success=[failing_hook],
+                on_failure=[failing_hook],
+                after_wait=[failing_hook],
+                before_wait=[failing_hook],
+            ):
+                with attempt:
+                    attempts += 1
+                    if attempts < 2:
+                        raise Exception("Test exception")
 
-        assert attempts == 2
-        spy.assert_has_calls(
-            [
-                call(AttemptState(attempt=2, exception=None)),
-            ]
-        )
+            assert attempts == 2
+            assert "Error calling before_wait hook failing_hook" in caplog.text
+            assert "Error calling after_wait hook failing_hook" in caplog.text
+            assert "Error calling on_failure hook failing_hook" in caplog.text
+            assert "Error calling on_success hook failing_hook" in caplog.text
+            assert "Error calling before_attempt hook failing_hook" in caplog.text
 
-    @pytest.mark.usefixtures("mock_sleep")
-    def test_hook_failure_does_not_stop_execution(
-        self, caplog: pytest.LogCaptureFixture
-    ):
-        def failing_hook(state: AttemptState):
-            raise Exception("Test exception")
+    class TestAsync:
+        async def test_before_attempt(self):
+            attempts = 0
+            sync_spy = MagicMock()
+            async_spy = AsyncMock()
+            async for attempt in attempting_async(
+                until=AttemptsExhausted(3), before_attempt=[sync_spy, async_spy]
+            ):
+                async with attempt:
+                    attempts += 1
+                    if attempts < 2:
+                        raise Exception("Test exception")
 
-        attempts = 0
+            assert attempts == 2
+            sync_spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=1, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
+            async_spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=1, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
 
-        for attempt in attempting(
-            until=AttemptsExhausted(3),
-            wait=1,
-            before_attempt=[failing_hook],
-            on_success=[failing_hook],
-            on_failure=[failing_hook],
-            after_wait=[failing_hook],
-            before_wait=[failing_hook],
+        async def test_on_success(self):
+            attempts = 0
+            sync_spy = MagicMock()
+            async_spy = AsyncMock()
+            async for attempt in attempting_async(
+                until=AttemptsExhausted(3), on_success=[sync_spy, async_spy]
+            ):
+                async with attempt:
+                    attempts += 1
+                    if attempts < 2:
+                        raise Exception("Test exception")
+
+            assert attempts == 2
+            sync_spy.assert_called_once_with(
+                state=AttemptState(attempt=2, exception=None)
+            )
+            async_spy.assert_called_once_with(
+                state=AttemptState(attempt=2, exception=None)
+            )
+
+        async def test_on_failure(self):
+            attempts = 0
+            sync_spy = MagicMock()
+            async_spy = AsyncMock()
+            exception = Exception("Test exception")
+            with pytest.raises(Exception):
+                async for attempt in attempting_async(
+                    until=AttemptsExhausted(3), on_failure=[sync_spy, async_spy]
+                ):
+                    async with attempt:
+                        attempts += 1
+                        raise exception
+
+            assert attempts == 3
+            sync_spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=1, exception=exception)),
+                    call(state=AttemptState(attempt=2, exception=exception)),
+                    call(state=AttemptState(attempt=3, exception=exception)),
+                ]
+            )
+            async_spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=1, exception=exception)),
+                    call(state=AttemptState(attempt=2, exception=exception)),
+                    call(state=AttemptState(attempt=3, exception=exception)),
+                ]
+            )
+
+        @pytest.mark.usefixtures("mock_async_sleep")
+        async def test_before_wait(self):
+            attempts = 0
+            sync_spy = MagicMock()
+            async_spy = AsyncMock()
+            async for attempt in attempting_async(
+                until=AttemptsExhausted(3), wait=1, before_wait=[sync_spy, async_spy]
+            ):
+                async with attempt:
+                    attempts += 1
+                    if attempts < 2:
+                        raise Exception("Test exception")
+
+            assert attempts == 2
+            sync_spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
+            async_spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
+
+        @pytest.mark.usefixtures("mock_async_sleep")
+        async def test_after_wait(self):
+            attempts = 0
+            sync_spy = MagicMock()
+            async_spy = AsyncMock()
+            async for attempt in attempting_async(
+                until=AttemptsExhausted(3), wait=1, after_wait=[sync_spy, async_spy]
+            ):
+                async with attempt:
+                    attempts += 1
+                    if attempts < 2:
+                        raise Exception("Test exception")
+
+            assert attempts == 2
+            sync_spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
+            async_spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
+
+        @pytest.mark.usefixtures("mock_async_sleep")
+        async def test_hook_failure_does_not_stop_execution(
+            self, caplog: pytest.LogCaptureFixture
         ):
-            with attempt:
-                attempts += 1
-                if attempts < 2:
-                    raise Exception("Test exception")
+            def sync_failing_hook(state: AttemptState | None):
+                raise Exception("Test exception")
 
-        assert attempts == 2
-        assert "Error calling before_wait hook failing_hook" in caplog.text
-        assert "Error calling after_wait hook failing_hook" in caplog.text
-        assert "Error calling on_failure hook failing_hook" in caplog.text
-        assert "Error calling on_success hook failing_hook" in caplog.text
-        assert "Error calling before_attempt hook failing_hook" in caplog.text
+            async def async_failing_hook(state: AttemptState | None):
+                raise Exception("Test exception")
+
+            attempts = 0
+
+            async for attempt in attempting_async(
+                until=AttemptsExhausted(3),
+                wait=1,
+                before_attempt=[sync_failing_hook, async_failing_hook],
+                on_success=[sync_failing_hook, async_failing_hook],
+                on_failure=[sync_failing_hook, async_failing_hook],
+                after_wait=[sync_failing_hook, async_failing_hook],
+                before_wait=[sync_failing_hook, async_failing_hook],
+            ):
+                async with attempt:
+                    attempts += 1
+                    if attempts < 2:
+                        raise Exception("Test exception")
+
+            assert attempts == 2
+            assert "Error calling before_wait hook sync_failing_hook" in caplog.text
+            assert "Error calling after_wait hook sync_failing_hook" in caplog.text
+            assert "Error calling on_failure hook sync_failing_hook" in caplog.text
+            assert "Error calling on_success hook sync_failing_hook" in caplog.text
+            assert "Error calling before_attempt hook sync_failing_hook" in caplog.text
+            assert "Error calling before_wait hook async_failing_hook" in caplog.text
+            assert "Error calling after_wait hook async_failing_hook" in caplog.text
+            assert "Error calling on_failure hook async_failing_hook" in caplog.text
+            assert "Error calling on_success hook async_failing_hook" in caplog.text
+            assert "Error calling before_attempt hook async_failing_hook" in caplog.text

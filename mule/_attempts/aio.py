@@ -1,14 +1,24 @@
 from __future__ import annotations
 import asyncio
 import datetime
+import inspect
+import logging
 from types import TracebackType
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal, Sequence, cast
 
+from mule._attempts.protocols import AsyncAttemptHook, AttemptHook
 from mule.stop_conditions import NoException, StopCondition
 from .dataclasses import AttemptState
 
 if TYPE_CHECKING:
     from .protocols import WaitTimeProvider  # pragma: no cover
+
+_logger = logging.getLogger("mule")
+
+
+HookType = Literal[
+    "before_attempt", "on_success", "on_failure", "before_wait", "after_wait"
+]
 
 
 class AsyncAttemptGenerator:
@@ -22,6 +32,11 @@ class AsyncAttemptGenerator:
         self,
         until: "StopCondition | None" = None,
         wait: "datetime.timedelta | int | float | None | WaitTimeProvider" = None,
+        before_attempt: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
+        on_success: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
+        on_failure: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
+        before_wait: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
+        after_wait: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
     ):
         """
         Initialize the AttemptGenerator.
@@ -37,6 +52,11 @@ class AsyncAttemptGenerator:
             self.stop_condition: "StopCondition" = until | NoException()
         self.wait = wait
         self._attempts: list[AsyncAttemptContext] = []
+        self.before_attempt = before_attempt
+        self.on_success = on_success
+        self.on_failure = on_failure
+        self.before_wait = before_wait
+        self.after_wait = after_wait
 
     @property
     def last_attempt(self) -> AsyncAttemptContext | None:
@@ -52,18 +72,52 @@ class AsyncAttemptGenerator:
         Get the next attempt context.
         """
         if not self.last_attempt:
-            next_attempt = AsyncAttemptContext(1)
+            next_attempt = AsyncAttemptContext(
+                attempt=1,
+                before_attempt=self.before_attempt,
+                on_success=self.on_success,
+                on_failure=self.on_failure,
+            )
             self._attempts.append(next_attempt)
             return next_attempt
         else:
-            next_attempt = AsyncAttemptContext(self.last_attempt.attempt + 1)
+            next_attempt = AsyncAttemptContext(
+                attempt=self.last_attempt.attempt + 1,
+                before_attempt=self.before_attempt,
+                on_success=self.on_success,
+                on_failure=self.on_failure,
+            )
             self._attempts.append(next_attempt)
             return next_attempt
 
     def __aiter__(self) -> AsyncAttemptGenerator:
         return self
 
-    async def _wait_for_next_attempt(self, attempt: "AttemptState") -> None:
+    async def _call_hooks(
+        self,
+        attempt: AsyncAttemptContext,
+        hooks_type: Literal["before_wait", "after_wait"],
+    ) -> None:
+        default_hooks: Sequence[AttemptHook | AsyncAttemptHook] = tuple()
+        hooks: Sequence[AttemptHook | AsyncAttemptHook] = getattr(
+            self, hooks_type, default_hooks
+        )
+        sync_hooks: list[AttemptHook] = []
+        async_hooks: list[AsyncAttemptHook] = []
+        for hook in hooks:
+            if inspect.iscoroutinefunction(hook):
+                async_hooks.append(hook)
+            else:
+                sync_hooks.append(cast(AttemptHook, hook))
+
+        state = attempt.to_attempt_state()
+        await asyncio.gather(
+            *[_call_async_hook(hook, state, hooks_type) for hook in async_hooks],
+            asyncio.to_thread(_call_sync_hooks, sync_hooks, state, hooks_type),
+            return_exceptions=True,
+        )
+
+    async def _wait_for_next_attempt(self, attempt: "AsyncAttemptContext") -> None:
         """
         Wait for the appropriate amount of time before the next attempt, if needed.
 
@@ -75,13 +129,15 @@ class AsyncAttemptGenerator:
             if callable(wait_time):
                 wait_time = wait_time(
                     self.last_attempt.to_attempt_state() if self.last_attempt else None,
-                    attempt,
+                    attempt.to_attempt_state(),
                 )
             if wait_time is not None:
+                await self._call_hooks(attempt, "before_wait")
                 if isinstance(wait_time, datetime.timedelta):
                     await asyncio.sleep(wait_time.total_seconds())
                 else:
                     await asyncio.sleep(float(wait_time))
+                await self._call_hooks(attempt, "after_wait")
 
     async def __anext__(self) -> AsyncAttemptContext:
         if self.stop_condition.is_met(
@@ -93,7 +149,7 @@ class AsyncAttemptGenerator:
                 raise StopAsyncIteration
 
         attempt = self.get_next_attempt()
-        await self._wait_for_next_attempt(attempt.to_attempt_state())
+        await self._wait_for_next_attempt(attempt)
         return attempt
 
 
@@ -104,11 +160,42 @@ class AsyncAttemptContext:
     The attempt context is used to track the attempt number and the exception that occurred.
     """
 
-    def __init__(self, attempt: int):
+    def __init__(
+        self,
+        attempt: int,
+        before_attempt: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
+        on_success: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
+        on_failure: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
+    ):
         self.attempt = attempt
         self.exception: BaseException | None = None
+        self.before_attempt = before_attempt
+        self.on_success = on_success
+        self.on_failure = on_failure
+
+    async def _call_hooks(
+        self, hooks_type: Literal["before_attempt", "on_success", "on_failure"]
+    ) -> None:
+        default_hooks: Sequence[AttemptHook | AsyncAttemptHook] = tuple()
+        hooks: Sequence[AttemptHook | AsyncAttemptHook] = getattr(
+            self, hooks_type, default_hooks
+        )
+        sync_hooks: list[AttemptHook] = []
+        async_hooks: list[AsyncAttemptHook] = []
+        for hook in hooks:
+            if inspect.iscoroutinefunction(hook):
+                async_hooks.append(hook)
+            else:
+                sync_hooks.append(cast(AttemptHook, hook))
+        state = self.to_attempt_state()
+        await asyncio.gather(
+            *[_call_async_hook(hook, state, hooks_type) for hook in async_hooks],
+            asyncio.to_thread(_call_sync_hooks, sync_hooks, state, hooks_type),
+            return_exceptions=True,
+        )
 
     async def __aenter__(self) -> AsyncAttemptContext:
+        await self._call_hooks("before_attempt")
         return self
 
     async def __aexit__(
@@ -119,13 +206,39 @@ class AsyncAttemptContext:
     ) -> bool | None:
         if _exc_value:
             self.exception = _exc_value
-            return True
+            await self._call_hooks("on_failure")
+        else:
+            await self._call_hooks("on_success")
+        return True
 
     def to_attempt_state(self) -> AttemptState:
         return AttemptState(
             attempt=self.attempt,
             exception=self.exception,
         )
+
+
+def _call_sync_hooks(
+    hooks: Sequence[AttemptHook],
+    state: AttemptState,
+    hook_type: HookType,
+) -> None:
+    for hook in hooks:
+        try:
+            hook(state=state)
+        except Exception as e:
+            _logger.error(f"Error calling {hook_type} hook {hook.__name__}", exc_info=e)
+
+
+async def _call_async_hook(
+    hook: AsyncAttemptHook,
+    state: AttemptState,
+    hook_type: HookType,
+) -> None:
+    try:
+        await hook(state=state)
+    except Exception as e:
+        _logger.error(f"Error calling {hook_type} hook {hook.__name__}", exc_info=e)
 
 
 attempting_async = AsyncAttemptGenerator
