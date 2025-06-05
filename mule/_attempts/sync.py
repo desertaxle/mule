@@ -7,10 +7,10 @@ from types import TracebackType
 from mule.stop_conditions import NoException, StopCondition
 from .dataclasses import AttemptState
 
-from typing import TYPE_CHECKING, Callable, Literal, Sequence
+from typing import TYPE_CHECKING, Literal, Sequence
 
 if TYPE_CHECKING:
-    from .protocols import WaitTimeProvider  # pragma: no cover
+    from .protocols import AttemptHook, WaitTimeProvider  # pragma: no cover
 
 _logger = logging.getLogger("mule")
 
@@ -27,11 +27,11 @@ class AttemptGenerator:
         *,
         until: "StopCondition | None" = None,
         wait: "datetime.timedelta | int | float | None | WaitTimeProvider" = None,
-        before_attempt: Sequence[Callable[[AttemptState], None]] = tuple(),
-        on_success: Sequence[Callable[[AttemptState], None]] = tuple(),
-        on_failure: Sequence[Callable[[AttemptState], None]] = tuple(),
-        before_wait: Sequence[Callable[[AttemptState], None]] = tuple(),
-        after_wait: Sequence[Callable[[AttemptState], None]] = tuple(),
+        before_attempt: Sequence[AttemptHook] = tuple(),
+        on_success: Sequence[AttemptHook] = tuple(),
+        on_failure: Sequence[AttemptHook] = tuple(),
+        before_wait: Sequence[AttemptHook] = tuple(),
+        after_wait: Sequence[AttemptHook] = tuple(),
     ):
         """
         Initialize the AttemptGenerator.
@@ -91,17 +91,15 @@ class AttemptGenerator:
     def _call_hooks(
         self, attempt: AttemptContext, hooks_type: Literal["before_wait", "after_wait"]
     ) -> None:
-        default_hooks: Sequence[Callable[[AttemptState], None]] = tuple()
-        hooks: Sequence[Callable[[AttemptState], None]] = getattr(
-            self, hooks_type, default_hooks
-        )
-        for callback in hooks:
+        default_hooks: Sequence[AttemptHook] = tuple()
+        hooks: Sequence[AttemptHook] = getattr(self, hooks_type, default_hooks)
+        for hook in hooks:
             try:
                 state = attempt.to_attempt_state()
-                callback(state)
+                hook(state=state)
             except Exception as e:
                 _logger.error(
-                    f"Error calling {hooks_type} hook {callback.__name__}", exc_info=e
+                    f"Error calling {hooks_type} hook {hook.__name__}", exc_info=e
                 )
                 continue
 
@@ -151,9 +149,9 @@ class AttemptContext:
     def __init__(
         self,
         attempt: int,
-        before_attempt: Sequence[Callable[[AttemptState], None]] = tuple(),
-        on_success: Sequence[Callable[[AttemptState], None]] = tuple(),
-        on_failure: Sequence[Callable[[AttemptState], None]] = tuple(),
+        before_attempt: Sequence[AttemptHook] = tuple(),
+        on_success: Sequence[AttemptHook] = tuple(),
+        on_failure: Sequence[AttemptHook] = tuple(),
     ):
         self.attempt = attempt
         self.exception: BaseException | None = None
@@ -164,17 +162,15 @@ class AttemptContext:
     def _call_hooks(
         self, hooks_type: Literal["before_attempt", "on_success", "on_failure"]
     ) -> None:
-        default_hooks: Sequence[Callable[[AttemptState], None]] = tuple()
-        hooks: Sequence[Callable[[AttemptState], None]] = getattr(
-            self, hooks_type, default_hooks
-        )
-        for callback in hooks:
+        default_hooks: Sequence[AttemptHook] = tuple()
+        hooks: Sequence[AttemptHook] = getattr(self, hooks_type, default_hooks)
+        for hook in hooks:
             try:
                 state = self.to_attempt_state()
-                callback(state)
+                hook(state=state)
             except Exception as e:
                 _logger.error(
-                    f"Error calling {hooks_type} hook {callback.__name__}", exc_info=e
+                    f"Error calling {hooks_type} hook {hook.__name__}", exc_info=e
                 )
                 continue
 
