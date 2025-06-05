@@ -262,7 +262,7 @@ class TestAttemptingHooks:
         def test_hook_failure_does_not_stop_execution(
             self, caplog: pytest.LogCaptureFixture
         ):
-            def failing_hook(state: AttemptState):
+            def failing_hook(state: AttemptState | None):
                 raise Exception("Test exception")
 
             attempts = 0
@@ -418,10 +418,10 @@ class TestAttemptingHooks:
         async def test_hook_failure_does_not_stop_execution(
             self, caplog: pytest.LogCaptureFixture
         ):
-            def sync_failing_hook(state: AttemptState):
+            def sync_failing_hook(state: AttemptState | None):
                 raise Exception("Test exception")
 
-            async def async_failing_hook(state: AttemptState):
+            async def async_failing_hook(state: AttemptState | None):
                 raise Exception("Test exception")
 
             attempts = 0

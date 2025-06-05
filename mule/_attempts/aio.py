@@ -30,7 +30,7 @@ class AsyncAttemptGenerator:
         on_success: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
         on_failure: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
         before_wait: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
-        after_wait: Sequence[AttemptHook] = tuple(),
+        after_wait: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
     ):
         """
         Initialize the AttemptGenerator.
@@ -121,7 +121,7 @@ class AsyncAttemptGenerator:
             if callable(wait_time):
                 wait_time = wait_time(
                     self.last_attempt.to_attempt_state() if self.last_attempt else None,
-                    attempt,
+                    attempt.to_attempt_state(),
                 )
             if wait_time is not None:
                 await self._call_hooks(attempt, "before_wait")
