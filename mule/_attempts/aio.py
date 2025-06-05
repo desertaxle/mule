@@ -1,9 +1,10 @@
 from __future__ import annotations
 import asyncio
 import datetime
+import inspect
 import logging
 from types import TracebackType
-from typing import TYPE_CHECKING, Literal, Sequence
+from typing import TYPE_CHECKING, Literal, Sequence, cast
 
 from mule._attempts.protocols import AsyncAttemptHook, AttemptHook
 from mule.stop_conditions import NoException, StopCondition
@@ -13,6 +14,11 @@ if TYPE_CHECKING:
     from .protocols import WaitTimeProvider  # pragma: no cover
 
 _logger = logging.getLogger("mule")
+
+
+HookType = Literal[
+    "before_attempt", "on_success", "on_failure", "before_wait", "after_wait"
+]
 
 
 class AsyncAttemptGenerator:
@@ -96,18 +102,20 @@ class AsyncAttemptGenerator:
         hooks: Sequence[AttemptHook | AsyncAttemptHook] = getattr(
             self, hooks_type, default_hooks
         )
+        sync_hooks: list[AttemptHook] = []
+        async_hooks: list[AsyncAttemptHook] = []
         for hook in hooks:
-            try:
-                state = attempt.to_attempt_state()
-                if asyncio.iscoroutinefunction(hook):
-                    await hook(state=state)
-                else:
-                    await asyncio.to_thread(hook, state=state)
-            except Exception as e:
-                _logger.error(
-                    f"Error calling {hooks_type} hook {hook.__name__}", exc_info=e
-                )
-                continue
+            if inspect.iscoroutinefunction(hook):
+                async_hooks.append(hook)
+            else:
+                sync_hooks.append(cast(AttemptHook, hook))
+
+        state = attempt.to_attempt_state()
+        await asyncio.gather(
+            *[_call_async_hook(hook, state, hooks_type) for hook in async_hooks],
+            asyncio.to_thread(_call_sync_hooks, sync_hooks, state, hooks_type),
+            return_exceptions=True,
+        )
 
     async def _wait_for_next_attempt(self, attempt: "AsyncAttemptContext") -> None:
         """
@@ -172,18 +180,19 @@ class AsyncAttemptContext:
         hooks: Sequence[AttemptHook | AsyncAttemptHook] = getattr(
             self, hooks_type, default_hooks
         )
+        sync_hooks: list[AttemptHook] = []
+        async_hooks: list[AsyncAttemptHook] = []
         for hook in hooks:
-            try:
-                state = self.to_attempt_state()
-                if asyncio.iscoroutinefunction(hook):
-                    await hook(state=state)
-                else:
-                    await asyncio.to_thread(hook, state=state)
-            except Exception as e:
-                _logger.error(
-                    f"Error calling {hooks_type} hook {hook.__name__}", exc_info=e
-                )
-                continue
+            if inspect.iscoroutinefunction(hook):
+                async_hooks.append(hook)
+            else:
+                sync_hooks.append(cast(AttemptHook, hook))
+        state = self.to_attempt_state()
+        await asyncio.gather(
+            *[_call_async_hook(hook, state, hooks_type) for hook in async_hooks],
+            asyncio.to_thread(_call_sync_hooks, sync_hooks, state, hooks_type),
+            return_exceptions=True,
+        )
 
     async def __aenter__(self) -> AsyncAttemptContext:
         await self._call_hooks("before_attempt")
@@ -207,6 +216,29 @@ class AsyncAttemptContext:
             attempt=self.attempt,
             exception=self.exception,
         )
+
+
+def _call_sync_hooks(
+    hooks: Sequence[AttemptHook],
+    state: AttemptState,
+    hook_type: HookType,
+) -> None:
+    for hook in hooks:
+        try:
+            hook(state=state)
+        except Exception as e:
+            _logger.error(f"Error calling {hook_type} hook {hook.__name__}", exc_info=e)
+
+
+async def _call_async_hook(
+    hook: AsyncAttemptHook,
+    state: AttemptState,
+    hook_type: HookType,
+) -> None:
+    try:
+        await hook(state=state)
+    except Exception as e:
+        _logger.error(f"Error calling {hook_type} hook {hook.__name__}", exc_info=e)
 
 
 attempting_async = AsyncAttemptGenerator
