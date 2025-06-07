@@ -6,6 +6,7 @@ from inspect import iscoroutinefunction
 from typing import TYPE_CHECKING, Awaitable, Callable, Generic, TypeVar, cast, overload
 from typing_extensions import ParamSpec
 
+from mule._attempts.protocols import AttemptHook
 from mule.stop_conditions import StopCondition
 from mule._attempts import AttemptGenerator, AsyncAttemptGenerator, WaitTimeProvider
 
@@ -37,12 +38,25 @@ class Retriable(Generic[P, R]):
         update_wrapper(self, __fn)
         self.until = until
         self.wait = wait
+        self.before_attempt_hooks: list[AttemptHook] = []
+        self.on_success_hooks: list[AttemptHook] = []
+        self.on_failure_hooks: list[AttemptHook] = []
+        self.before_wait_hooks: list[AttemptHook] = []
+        self.after_wait_hooks: list[AttemptHook] = []
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
         if iscoroutinefunction(self.fn):
             return self._call_async(*args, **kwargs)  # pyright: ignore[reportReturnType]
 
-        for attempt in AttemptGenerator(until=self.until, wait=self.wait):
+        for attempt in AttemptGenerator(
+            until=self.until,
+            wait=self.wait,
+            before_attempt=self.before_attempt_hooks,
+            on_success=self.on_success_hooks,
+            on_failure=self.on_failure_hooks,
+            before_wait=self.before_wait_hooks,
+            after_wait=self.after_wait_hooks,
+        ):
             with attempt:
                 return self.fn(*args, **kwargs)
 
@@ -53,7 +67,13 @@ class Retriable(Generic[P, R]):
     def _call_async(self, *args: P.args, **kwargs: P.kwargs) -> Awaitable[R]:
         async def _call() -> R:
             async for attempt in AsyncAttemptGenerator(
-                until=self.until, wait=self.wait
+                until=self.until,
+                wait=self.wait,
+                before_attempt=self.before_attempt_hooks,
+                on_success=self.on_success_hooks,
+                on_failure=self.on_failure_hooks,
+                before_wait=self.before_wait_hooks,
+                after_wait=self.after_wait_hooks,
             ):
                 async with attempt:
                     if TYPE_CHECKING:
@@ -66,6 +86,110 @@ class Retriable(Generic[P, R]):
             )
 
         return _call()
+
+    def before_attempt(self, hook: AttemptHook) -> AttemptHook:
+        """
+        Add a hook that will be called before each attempt.
+
+        Example:
+        ```python
+        from mule import retry
+        from mule.stop_conditions import AttemptsExhausted
+
+        @retry(until=AttemptsExhausted(3))
+        def f(x: int) -> int:
+            return x * 3
+
+        @f.before_attempt
+        def before_attempt(state: AttemptState):
+            print(f"Attempt {state.attempt} started")
+        ```
+        """
+        self.before_attempt_hooks.append(hook)
+        return hook
+
+    def on_success(self, hook: AttemptHook) -> AttemptHook:
+        """
+        Add a hook that will be called when the wrapped function succeeds.
+
+        Example:
+        ```python
+        from mule import retry
+        from mule.stop_conditions import AttemptsExhausted
+
+        @retry(until=AttemptsExhausted(3))
+        def f(x: int) -> int:
+            return x * 3
+
+        @f.on_success
+        def on_success(state: AttemptState):
+            print(f"Attempt {state.attempt} succeeded")
+        """
+        self.on_success_hooks.append(hook)
+        return hook
+
+    def on_failure(self, hook: AttemptHook) -> AttemptHook:
+        """
+        Add a hook that will be called when the wrapped function fails.
+
+        Example:
+        ```python
+        from mule import retry
+        from mule.stop_conditions import AttemptsExhausted
+
+        @retry(until=AttemptsExhausted(3))
+        def f(x: int) -> int:
+            raise RuntimeError()
+
+        @f.on_failure
+        def on_failure(state: AttemptState):
+            print(f"Attempt {state.attempt} failed")
+        ```
+        """
+        self.on_failure_hooks.append(hook)
+        return hook
+
+    def before_wait(self, hook: AttemptHook) -> AttemptHook:
+        """
+        Add a hook that will be called before each wait.
+
+        Example:
+        ```python
+        from mule import retry
+        from mule.stop_conditions import AttemptsExhausted
+
+        @retry(until=AttemptsExhausted(3), wait=5)
+        def f(x: int) -> int:
+            raise RuntimeError()
+
+        @f.before_wait
+        def before_wait(state: AttemptState):
+            print(f"Waiting before next attempt")
+        ```
+        """
+        self.before_wait_hooks.append(hook)
+        return hook
+
+    def after_wait(self, hook: AttemptHook) -> AttemptHook:
+        """
+        Add a hook that will be called after each wait.
+
+        Example:
+        ```python
+        from mule import retry
+        from mule.stop_conditions import AttemptsExhausted
+
+        @retry(until=AttemptsExhausted(3), wait=5)
+        def f(x: int) -> int:
+            raise RuntimeError()
+
+        @f.after_wait
+        def after_wait(state: AttemptState):
+            print(f"Finished waiting")
+        ```
+        """
+        self.after_wait_hooks.append(hook)
+        return hook
 
 
 @overload
