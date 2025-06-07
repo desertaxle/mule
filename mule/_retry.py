@@ -67,7 +67,13 @@ class Retriable(Generic[P, R]):
     def _call_async(self, *args: P.args, **kwargs: P.kwargs) -> Awaitable[R]:
         async def _call() -> R:
             async for attempt in AsyncAttemptGenerator(
-                until=self.until, wait=self.wait
+                until=self.until,
+                wait=self.wait,
+                before_attempt=self.before_attempt_hooks,
+                on_success=self.on_success_hooks,
+                on_failure=self.on_failure_hooks,
+                before_wait=self.before_wait_hooks,
+                after_wait=self.after_wait_hooks,
             ):
                 async with attempt:
                     if TYPE_CHECKING:

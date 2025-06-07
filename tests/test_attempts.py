@@ -10,20 +10,6 @@ from mule._attempts.dataclasses import AttemptState
 from mule.stop_conditions import AttemptsExhausted, NoException
 
 
-@pytest.fixture
-def mock_sleep(monkeypatch: pytest.MonkeyPatch):
-    mock_sleep = MagicMock()
-    monkeypatch.setattr("time.sleep", mock_sleep)
-    return mock_sleep
-
-
-@pytest.fixture
-def mock_async_sleep(monkeypatch: pytest.MonkeyPatch):
-    mock_sleep = AsyncMock()
-    monkeypatch.setattr("asyncio.sleep", mock_sleep)
-    return mock_sleep
-
-
 class TestAttemptGenerator:
     def test_default_stop_condition(self):
         generator = AttemptGenerator()
