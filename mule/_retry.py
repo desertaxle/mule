@@ -87,7 +87,7 @@ class Retriable(Generic[P, R]):
 
         return _call()
 
-    def before_attempt(self, hook: AttemptHook) -> Retriable[P, R]:
+    def before_attempt(self, hook: AttemptHook) -> AttemptHook:
         """
         Add a hook that will be called before each attempt.
 
@@ -106,9 +106,9 @@ class Retriable(Generic[P, R]):
         ```
         """
         self.before_attempt_hooks.append(hook)
-        return self
+        return hook
 
-    def on_success(self, hook: AttemptHook) -> Retriable[P, R]:
+    def on_success(self, hook: AttemptHook) -> AttemptHook:
         """
         Add a hook that will be called when the wrapped function succeeds.
 
@@ -126,9 +126,9 @@ class Retriable(Generic[P, R]):
             print(f"Attempt {state.attempt} succeeded")
         """
         self.on_success_hooks.append(hook)
-        return self
+        return hook
 
-    def on_failure(self, hook: AttemptHook) -> Retriable[P, R]:
+    def on_failure(self, hook: AttemptHook) -> AttemptHook:
         """
         Add a hook that will be called when the wrapped function fails.
 
@@ -147,9 +147,9 @@ class Retriable(Generic[P, R]):
         ```
         """
         self.on_failure_hooks.append(hook)
-        return self
+        return hook
 
-    def before_wait(self, hook: AttemptHook) -> Retriable[P, R]:
+    def before_wait(self, hook: AttemptHook) -> AttemptHook:
         """
         Add a hook that will be called before each wait.
 
@@ -168,9 +168,9 @@ class Retriable(Generic[P, R]):
         ```
         """
         self.before_wait_hooks.append(hook)
-        return self
+        return hook
 
-    def after_wait(self, hook: AttemptHook) -> Retriable[P, R]:
+    def after_wait(self, hook: AttemptHook) -> AttemptHook:
         """
         Add a hook that will be called after each wait.
 
@@ -189,7 +189,7 @@ class Retriable(Generic[P, R]):
         ```
         """
         self.after_wait_hooks.append(hook)
-        return self
+        return hook
 
 
 @overload
