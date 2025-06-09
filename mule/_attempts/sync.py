@@ -1,21 +1,22 @@
 from __future__ import annotations
+
 import asyncio
 import datetime
-from inspect import iscoroutinefunction
 import logging
 import time
+from inspect import iscoroutinefunction
 from types import TracebackType
+from typing import TYPE_CHECKING, Literal, Sequence
 
 from mule._attempts.protocols import HookType
 from mule.stop_conditions import NoException, StopCondition
-from .dataclasses import AttemptState
 
-from typing import TYPE_CHECKING, Literal, Sequence
+from .dataclasses import AttemptState
 
 if TYPE_CHECKING:
     from .protocols import (
-        AttemptHook,
         AsyncAttemptHook,
+        AttemptHook,
         WaitTimeProvider,
     )  # pragma: no cover
 

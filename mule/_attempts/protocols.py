@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 from typing import TYPE_CHECKING, Literal
+
 from typing_extensions import Protocol
 
 if TYPE_CHECKING:

@@ -1,10 +1,10 @@
-from .sync import attempting, AttemptGenerator, AttemptContext
 from .aio import (
-    attempting_async,
-    AsyncAttemptGenerator,
     AsyncAttemptContext,
+    AsyncAttemptGenerator,
+    attempting_async,
 )
 from .protocols import WaitTimeProvider
+from .sync import AttemptContext, AttemptGenerator, attempting
 
 __all__ = [
     "attempting",

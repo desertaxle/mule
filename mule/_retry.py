@@ -13,12 +13,12 @@ from typing import (
     cast,
     overload,
 )
+
 from typing_extensions import ParamSpec
 
+from mule._attempts import AsyncAttemptGenerator, AttemptGenerator, WaitTimeProvider
 from mule._attempts.protocols import AsyncAttemptHook, AttemptHook
 from mule.stop_conditions import StopCondition
-from mule._attempts import AttemptGenerator, AsyncAttemptGenerator, WaitTimeProvider
-
 
 P = ParamSpec("P")
 R = TypeVar("R")
