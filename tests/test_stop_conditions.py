@@ -2,9 +2,9 @@ import pytest
 
 from mule._attempts.dataclasses import AttemptState
 from mule.stop_conditions import (
-    IntersectionStopCondition,
     AttemptsExhausted,
     ExceptionMatches,
+    IntersectionStopCondition,
     NoException,
     UnionStopCondition,
 )

@@ -3,10 +3,11 @@ from __future__ import annotations
 import asyncio
 import datetime
 from unittest.mock import AsyncMock, MagicMock, call
+
 import pytest
 
 from mule import attempting, attempting_async
-from mule._attempts import AttemptGenerator, AsyncAttemptGenerator
+from mule._attempts import AsyncAttemptGenerator, AttemptGenerator
 from mule._attempts.dataclasses import AttemptState
 from mule.stop_conditions import AttemptsExhausted, NoException
 

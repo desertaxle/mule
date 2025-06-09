@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import asyncio
 import datetime
 import inspect
@@ -8,6 +9,7 @@ from typing import TYPE_CHECKING, Literal, Sequence, cast
 
 from mule._attempts.protocols import AsyncAttemptHook, AttemptHook, HookType
 from mule.stop_conditions import NoException, StopCondition
+
 from .dataclasses import AttemptState
 
 if TYPE_CHECKING:

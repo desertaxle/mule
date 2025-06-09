@@ -1,10 +1,12 @@
 from __future__ import annotations
+
 import datetime
 from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
+
 from mule._attempts.dataclasses import AttemptState
-from mule._retry import retry, Retriable
+from mule._retry import Retriable, retry
 from mule.stop_conditions import AttemptsExhausted, StopCondition
 
 
