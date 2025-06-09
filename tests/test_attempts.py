@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import datetime
 from unittest.mock import AsyncMock, MagicMock, call
 import pytest
@@ -161,7 +162,10 @@ class TestAttemptingHooks:
         def test_before_attempt(self):
             attempts = 0
             spy = MagicMock()
-            for attempt in attempting(until=AttemptsExhausted(3), before_attempt=[spy]):
+            async_spy = AsyncMock()
+            for attempt in attempting(
+                until=AttemptsExhausted(3), before_attempt=[spy, async_spy]
+            ):
                 with attempt:
                     attempts += 1
                     if attempts < 2:
@@ -174,11 +178,20 @@ class TestAttemptingHooks:
                     call(state=AttemptState(attempt=2, exception=None)),
                 ]
             )
+            async_spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=1, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
 
         def test_on_success(self):
             attempts = 0
             spy = MagicMock()
-            for attempt in attempting(until=AttemptsExhausted(3), on_success=[spy]):
+            async_spy = AsyncMock()
+            for attempt in attempting(
+                until=AttemptsExhausted(3), on_success=[spy, async_spy]
+            ):
                 with attempt:
                     attempts += 1
                     if attempts < 2:
@@ -186,13 +199,19 @@ class TestAttemptingHooks:
 
             assert attempts == 2
             spy.assert_called_once_with(state=AttemptState(attempt=2, exception=None))
+            async_spy.assert_called_once_with(
+                state=AttemptState(attempt=2, exception=None)
+            )
 
         def test_on_failure(self):
             attempts = 0
             spy = MagicMock()
+            async_spy = AsyncMock()
             exception = Exception("Test exception")
             with pytest.raises(Exception):
-                for attempt in attempting(until=AttemptsExhausted(3), on_failure=[spy]):
+                for attempt in attempting(
+                    until=AttemptsExhausted(3), on_failure=[spy, async_spy]
+                ):
                     with attempt:
                         attempts += 1
                         raise exception
@@ -205,13 +224,21 @@ class TestAttemptingHooks:
                     call(state=AttemptState(attempt=3, exception=exception)),
                 ]
             )
+            async_spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=1, exception=exception)),
+                    call(state=AttemptState(attempt=2, exception=exception)),
+                    call(state=AttemptState(attempt=3, exception=exception)),
+                ]
+            )
 
         @pytest.mark.usefixtures("mock_sleep")
         def test_before_wait(self):
             attempts = 0
             spy = MagicMock()
+            async_spy = AsyncMock()
             for attempt in attempting(
-                until=AttemptsExhausted(3), wait=1, before_wait=[spy]
+                until=AttemptsExhausted(3), wait=1, before_wait=[spy, async_spy]
             ):
                 with attempt:
                     attempts += 1
@@ -224,13 +251,19 @@ class TestAttemptingHooks:
                     call(state=AttemptState(attempt=2, exception=None)),
                 ]
             )
+            async_spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
 
         @pytest.mark.usefixtures("mock_sleep")
         def test_after_wait(self):
             attempts = 0
             spy = MagicMock()
+            async_spy = AsyncMock()
             for attempt in attempting(
-                until=AttemptsExhausted(3), wait=1, after_wait=[spy]
+                until=AttemptsExhausted(3), wait=1, after_wait=[spy, async_spy]
             ):
                 with attempt:
                     attempts += 1
@@ -239,6 +272,11 @@ class TestAttemptingHooks:
 
             assert attempts == 2
             spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
+            async_spy.assert_has_calls(
                 [
                     call(state=AttemptState(attempt=2, exception=None)),
                 ]
@@ -251,16 +289,19 @@ class TestAttemptingHooks:
             def failing_hook(state: AttemptState | None):
                 raise Exception("Test exception")
 
+            async def async_failing_hook(state: AttemptState | None):
+                raise Exception("Test exception")
+
             attempts = 0
 
             for attempt in attempting(
                 until=AttemptsExhausted(3),
                 wait=1,
-                before_attempt=[failing_hook],
-                on_success=[failing_hook],
-                on_failure=[failing_hook],
-                after_wait=[failing_hook],
-                before_wait=[failing_hook],
+                before_attempt=[failing_hook, async_failing_hook],
+                on_success=[failing_hook, async_failing_hook],
+                on_failure=[failing_hook, async_failing_hook],
+                after_wait=[failing_hook, async_failing_hook],
+                before_wait=[failing_hook, async_failing_hook],
             ):
                 with attempt:
                     attempts += 1
@@ -273,6 +314,33 @@ class TestAttemptingHooks:
             assert "Error calling on_failure hook failing_hook" in caplog.text
             assert "Error calling on_success hook failing_hook" in caplog.text
             assert "Error calling before_attempt hook failing_hook" in caplog.text
+            assert "Error calling before_wait hook async_failing_hook" in caplog.text
+            assert "Error calling after_wait hook async_failing_hook" in caplog.text
+            assert "Error calling on_failure hook async_failing_hook" in caplog.text
+            assert "Error calling on_success hook async_failing_hook" in caplog.text
+            assert "Error calling before_attempt hook async_failing_hook" in caplog.text
+
+        def test_async_hooks_work_with_no_current_loop(self):
+            # Clear the current event loop so that asyncio.get_event_loop() raises a RuntimeError
+            asyncio.set_event_loop(None)
+
+            attempts = 0
+            async_spy = AsyncMock()
+            for attempt in attempting(
+                until=AttemptsExhausted(3), before_attempt=[async_spy]
+            ):
+                with attempt:
+                    attempts += 1
+                    if attempts < 2:
+                        raise Exception("Test exception")
+
+            assert attempts == 2
+            async_spy.assert_has_calls(
+                [
+                    call(state=AttemptState(attempt=1, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None)),
+                ]
+            )
 
     class TestAsync:
         async def test_before_attempt(self):
