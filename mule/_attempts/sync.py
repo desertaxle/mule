@@ -6,7 +6,7 @@ import logging
 import time
 from inspect import iscoroutinefunction
 from types import TracebackType
-from typing import TYPE_CHECKING, Literal, Sequence
+from typing import TYPE_CHECKING, Any, Literal, Sequence
 
 from mule._attempts.protocols import HookType
 from mule.stop_conditions import NoException, StopCondition
@@ -168,6 +168,7 @@ class AttemptContext:
     ):
         self.attempt = attempt
         self.exception: BaseException | None = None
+        self.result: Any = ...  # Ellipsis is used as a sentinel to indicate that a result has not been set yet.
         self.before_attempt = before_attempt
         self.on_success = on_success
         self.on_failure = on_failure
@@ -215,6 +216,7 @@ class AttemptContext:
         return AttemptState(
             attempt=self.attempt,
             exception=self.exception,
+            result=self.result,
         )
 
 

@@ -5,7 +5,7 @@ import datetime
 import inspect
 import logging
 from types import TracebackType
-from typing import TYPE_CHECKING, Literal, Sequence, cast
+from typing import TYPE_CHECKING, Any, Literal, Sequence, cast
 
 from mule._attempts.protocols import AsyncAttemptHook, AttemptHook, HookType
 from mule.stop_conditions import NoException, StopCondition
@@ -48,12 +48,13 @@ class AsyncAttemptGenerator:
         else:
             self.stop_condition: "StopCondition" = until | NoException()
         self.wait = wait
-        self._attempts: list[AsyncAttemptContext] = []
         self.before_attempt = before_attempt
         self.on_success = on_success
         self.on_failure = on_failure
         self.before_wait = before_wait
         self.after_wait = after_wait
+
+        self._attempts: list[AsyncAttemptContext] = []
 
     @property
     def last_attempt(self) -> AsyncAttemptContext | None:
@@ -166,6 +167,7 @@ class AsyncAttemptContext:
     ):
         self.attempt = attempt
         self.exception: BaseException | None = None
+        self.result: Any = ...  # Ellipsis is used as a sentinel to indicate that a result has not been set yet.
         self.before_attempt = before_attempt
         self.on_success = on_success
         self.on_failure = on_failure
@@ -212,6 +214,7 @@ class AsyncAttemptContext:
         return AttemptState(
             attempt=self.attempt,
             exception=self.exception,
+            result=self.result,
         )
 
 
