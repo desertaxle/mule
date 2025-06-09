@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 from typing_extensions import Protocol
 
 if TYPE_CHECKING:
     from .dataclasses import AttemptState  # pragma: no cover
+
+HookType = Literal[
+    "before_attempt", "on_success", "on_failure", "before_wait", "after_wait"
+]
 
 
 class WaitTimeProvider(Protocol):

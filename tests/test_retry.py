@@ -296,6 +296,7 @@ class TestHookDecorators:
     class TestSync:
         def test_retry_decorator_with_before_attempt_hook(self):
             spy = MagicMock()
+            async_spy = AsyncMock()
 
             @retry(until=AttemptsExhausted(2))
             def f(x: int) -> int:
@@ -305,11 +306,17 @@ class TestHookDecorators:
             def before_attempt(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
                 spy(state)
 
+            @f.before_attempt
+            async def async_before_attempt(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
+                await async_spy(state)
+
             f(3)
             spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
+            async_spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
 
         def test_retry_decorator_with_on_success_hook(self):
             spy = MagicMock()
+            async_spy = AsyncMock()
 
             @retry(until=AttemptsExhausted(2))
             def f(x: int) -> int:
@@ -319,11 +326,17 @@ class TestHookDecorators:
             def on_success(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
                 spy(state)
 
+            @f.on_success
+            async def async_on_success(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
+                await async_spy(state)
+
             f(3)
             spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
+            async_spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
 
         def test_retry_decorator_with_on_failure_hook(self):
             spy = MagicMock()
+            async_spy = AsyncMock()
             exception = RuntimeError()
 
             @retry(until=AttemptsExhausted(2))
@@ -334,10 +347,20 @@ class TestHookDecorators:
             def on_failure(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
                 spy(state)
 
+            @f.on_failure
+            async def async_on_failure(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
+                await async_spy(state)
+
             with pytest.raises(RuntimeError):
                 f(3)
 
             spy.assert_has_calls(
+                [
+                    call(AttemptState(attempt=1, exception=exception)),
+                    call(AttemptState(attempt=2, exception=exception)),
+                ]
+            )
+            async_spy.assert_has_calls(
                 [
                     call(AttemptState(attempt=1, exception=exception)),
                     call(AttemptState(attempt=2, exception=exception)),
@@ -347,6 +370,7 @@ class TestHookDecorators:
         @pytest.mark.usefixtures("mock_sleep")
         def test_retry_decorator_with_before_wait_hook(self):
             spy = MagicMock()
+            async_spy = AsyncMock()
             exception = RuntimeError()
 
             @retry(until=AttemptsExhausted(2), wait=1)
@@ -357,6 +381,10 @@ class TestHookDecorators:
             def before_wait(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
                 spy(state)
 
+            @f.before_wait
+            async def async_before_wait(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
+                await async_spy(state)
+
             with pytest.raises(RuntimeError):
                 f(3)
 
@@ -365,10 +393,16 @@ class TestHookDecorators:
                     call(AttemptState(attempt=2, exception=None)),
                 ]
             )
+            async_spy.assert_has_calls(
+                [
+                    call(AttemptState(attempt=2, exception=None)),
+                ]
+            )
 
         @pytest.mark.usefixtures("mock_sleep")
         def test_retry_decorator_with_after_wait_hook(self):
             spy = MagicMock()
+            async_spy = AsyncMock()
             exception = RuntimeError()
 
             @retry(until=AttemptsExhausted(2), wait=1)
@@ -379,6 +413,10 @@ class TestHookDecorators:
             def after_wait(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
                 spy(state)
 
+            @f.after_wait
+            async def async_after_wait(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
+                await async_spy(state)
+
             with pytest.raises(RuntimeError):
                 f(3)
 
@@ -387,10 +425,16 @@ class TestHookDecorators:
                     call(AttemptState(attempt=2, exception=None)),
                 ]
             )
+            async_spy.assert_has_calls(
+                [
+                    call(AttemptState(attempt=2, exception=None)),
+                ]
+            )
 
     class TestAsync:
         async def test_retry_decorator_with_before_attempt_hook(self):
             spy = MagicMock()
+            async_spy = AsyncMock()
 
             @retry(until=AttemptsExhausted(2))
             async def f(x: int) -> int:
@@ -400,11 +444,17 @@ class TestHookDecorators:
             def before_attempt(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
                 spy(state)
 
+            @f.before_attempt
+            async def async_before_attempt(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
+                await async_spy(state)
+
             await f(3)
             spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
+            async_spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
 
         async def test_retry_decorator_with_on_success_hook(self):
             spy = MagicMock()
+            async_spy = AsyncMock()
 
             @retry(until=AttemptsExhausted(2))
             async def f(x: int) -> int:
@@ -414,11 +464,17 @@ class TestHookDecorators:
             def on_success(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
                 spy(state)
 
+            @f.on_success
+            async def async_on_success(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
+                await async_spy(state)
+
             await f(3)
             spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
+            async_spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
 
         async def test_retry_decorator_with_on_failure_hook(self):
             spy = MagicMock()
+            async_spy = AsyncMock()
             exception = RuntimeError()
 
             @retry(until=AttemptsExhausted(2))
@@ -429,6 +485,10 @@ class TestHookDecorators:
             def on_failure(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
                 spy(state)
 
+            @f.on_failure
+            async def async_on_failure(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
+                await async_spy(state)
+
             with pytest.raises(RuntimeError):
                 await f(3)
 
@@ -438,10 +498,17 @@ class TestHookDecorators:
                     call(AttemptState(attempt=2, exception=exception)),
                 ]
             )
+            async_spy.assert_has_calls(
+                [
+                    call(AttemptState(attempt=1, exception=exception)),
+                    call(AttemptState(attempt=2, exception=exception)),
+                ]
+            )
 
         @pytest.mark.usefixtures("mock_async_sleep")
         async def test_retry_decorator_with_before_wait_hook(self):
             spy = MagicMock()
+            async_spy = AsyncMock()
             exception = RuntimeError()
 
             @retry(until=AttemptsExhausted(2), wait=1)
@@ -452,6 +519,10 @@ class TestHookDecorators:
             def before_wait(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
                 spy(state)
 
+            @f.before_wait
+            async def async_before_wait(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
+                await async_spy(state)
+
             with pytest.raises(RuntimeError):
                 await f(3)
 
@@ -460,10 +531,16 @@ class TestHookDecorators:
                     call(AttemptState(attempt=2, exception=None)),
                 ]
             )
+            async_spy.assert_has_calls(
+                [
+                    call(AttemptState(attempt=2, exception=None)),
+                ]
+            )
 
         @pytest.mark.usefixtures("mock_async_sleep")
         async def test_retry_decorator_with_after_wait_hook(self):
             spy = MagicMock()
+            async_spy = AsyncMock()
             exception = RuntimeError()
 
             @retry(until=AttemptsExhausted(2), wait=1)
@@ -474,10 +551,19 @@ class TestHookDecorators:
             def after_wait(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
                 spy(state)
 
+            @f.after_wait
+            async def async_after_wait(state: AttemptState):  # pyright: ignore[reportUnusedFunction]
+                await async_spy(state)
+
             with pytest.raises(RuntimeError):
                 await f(3)
 
             spy.assert_has_calls(
+                [
+                    call(AttemptState(attempt=2, exception=None)),
+                ]
+            )
+            async_spy.assert_has_calls(
                 [
                     call(AttemptState(attempt=2, exception=None)),
                 ]

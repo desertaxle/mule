@@ -6,7 +6,7 @@ import logging
 from types import TracebackType
 from typing import TYPE_CHECKING, Literal, Sequence, cast
 
-from mule._attempts.protocols import AsyncAttemptHook, AttemptHook
+from mule._attempts.protocols import AsyncAttemptHook, AttemptHook, HookType
 from mule.stop_conditions import NoException, StopCondition
 from .dataclasses import AttemptState
 
@@ -14,11 +14,6 @@ if TYPE_CHECKING:
     from .protocols import WaitTimeProvider  # pragma: no cover
 
 _logger = logging.getLogger("mule")
-
-
-HookType = Literal[
-    "before_attempt", "on_success", "on_failure", "before_wait", "after_wait"
-]
 
 
 class AsyncAttemptGenerator:

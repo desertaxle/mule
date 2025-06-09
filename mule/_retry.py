@@ -3,16 +3,26 @@ from __future__ import annotations
 import datetime
 from functools import partial, update_wrapper
 from inspect import iscoroutinefunction
-from typing import TYPE_CHECKING, Awaitable, Callable, Generic, TypeVar, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Awaitable,
+    Callable,
+    Generic,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 from typing_extensions import ParamSpec
 
-from mule._attempts.protocols import AttemptHook
+from mule._attempts.protocols import AsyncAttemptHook, AttemptHook
 from mule.stop_conditions import StopCondition
 from mule._attempts import AttemptGenerator, AsyncAttemptGenerator, WaitTimeProvider
 
 
 P = ParamSpec("P")
 R = TypeVar("R")
+H = TypeVar("H", bound=Union[AttemptHook, AsyncAttemptHook])
 
 
 class Retriable(Generic[P, R]):
@@ -38,11 +48,11 @@ class Retriable(Generic[P, R]):
         update_wrapper(self, __fn)
         self.until = until
         self.wait = wait
-        self.before_attempt_hooks: list[AttemptHook] = []
-        self.on_success_hooks: list[AttemptHook] = []
-        self.on_failure_hooks: list[AttemptHook] = []
-        self.before_wait_hooks: list[AttemptHook] = []
-        self.after_wait_hooks: list[AttemptHook] = []
+        self.before_attempt_hooks: list[AttemptHook | AsyncAttemptHook] = []
+        self.on_success_hooks: list[AttemptHook | AsyncAttemptHook] = []
+        self.on_failure_hooks: list[AttemptHook | AsyncAttemptHook] = []
+        self.before_wait_hooks: list[AttemptHook | AsyncAttemptHook] = []
+        self.after_wait_hooks: list[AttemptHook | AsyncAttemptHook] = []
 
     def __call__(self, *args: P.args, **kwargs: P.kwargs) -> R:
         if iscoroutinefunction(self.fn):
@@ -87,7 +97,7 @@ class Retriable(Generic[P, R]):
 
         return _call()
 
-    def before_attempt(self, hook: AttemptHook) -> AttemptHook:
+    def before_attempt(self, hook: H) -> H:
         """
         Add a hook that will be called before each attempt.
 
@@ -108,7 +118,7 @@ class Retriable(Generic[P, R]):
         self.before_attempt_hooks.append(hook)
         return hook
 
-    def on_success(self, hook: AttemptHook) -> AttemptHook:
+    def on_success(self, hook: H) -> H:
         """
         Add a hook that will be called when the wrapped function succeeds.
 
@@ -128,7 +138,7 @@ class Retriable(Generic[P, R]):
         self.on_success_hooks.append(hook)
         return hook
 
-    def on_failure(self, hook: AttemptHook) -> AttemptHook:
+    def on_failure(self, hook: H) -> H:
         """
         Add a hook that will be called when the wrapped function fails.
 
@@ -149,7 +159,7 @@ class Retriable(Generic[P, R]):
         self.on_failure_hooks.append(hook)
         return hook
 
-    def before_wait(self, hook: AttemptHook) -> AttemptHook:
+    def before_wait(self, hook: H) -> H:
         """
         Add a hook that will be called before each wait.
 
@@ -170,7 +180,7 @@ class Retriable(Generic[P, R]):
         self.before_wait_hooks.append(hook)
         return hook
 
-    def after_wait(self, hook: AttemptHook) -> AttemptHook:
+    def after_wait(self, hook: H) -> H:
         """
         Add a hook that will be called after each wait.
 
