@@ -68,7 +68,9 @@ class Retriable(Generic[P, R]):
             after_wait=self.after_wait_hooks,
         ):
             with attempt:
-                return self.fn(*args, **kwargs)
+                result = self.fn(*args, **kwargs)
+                attempt.result = result
+                return result
 
         raise RuntimeError(
             "Failed to make a single attempt with the given stop condition"
@@ -89,7 +91,9 @@ class Retriable(Generic[P, R]):
                     if TYPE_CHECKING:
                         assert iscoroutinefunction(self.fn)  # pragma: no cover
 
-                    return await self.fn(*args, **kwargs)
+                    result = await self.fn(*args, **kwargs)
+                    attempt.result = result
+                    return result
 
             raise RuntimeError(
                 "Failed to make a single attempt with the given stop condition"

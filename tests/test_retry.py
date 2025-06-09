@@ -333,8 +333,12 @@ class TestHookDecorators:
                 await async_spy(state)
 
             f(3)
-            spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
-            async_spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
+            spy.assert_called_once_with(
+                AttemptState(attempt=1, exception=None, result=9)
+            )
+            async_spy.assert_called_once_with(
+                AttemptState(attempt=1, exception=None, result=9)
+            )
 
         def test_retry_decorator_with_on_failure_hook(self):
             spy = MagicMock()
@@ -471,8 +475,12 @@ class TestHookDecorators:
                 await async_spy(state)
 
             await f(3)
-            spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
-            async_spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
+            spy.assert_called_once_with(
+                AttemptState(attempt=1, exception=None, result=9)
+            )
+            async_spy.assert_called_once_with(
+                AttemptState(attempt=1, exception=None, result=9)
+            )
 
         async def test_retry_decorator_with_on_failure_hook(self):
             spy = MagicMock()
