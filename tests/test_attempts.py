@@ -163,8 +163,12 @@ class TestAttemptingHooks:
             attempts = 0
             spy = MagicMock()
             async_spy = AsyncMock()
+
+            async def async_hook_wrapper(state: AttemptState) -> None:
+                await async_spy(state=state)
+
             for attempt in attempting(
-                until=AttemptsExhausted(3), before_attempt=[spy, async_spy]
+                until=AttemptsExhausted(3), before_attempt=[spy, async_hook_wrapper]
             ):
                 with attempt:
                     attempts += 1
@@ -189,8 +193,12 @@ class TestAttemptingHooks:
             attempts = 0
             spy = MagicMock()
             async_spy = AsyncMock()
+
+            async def async_hook_wrapper(state: AttemptState) -> None:
+                await async_spy(state=state)
+
             for attempt in attempting(
-                until=AttemptsExhausted(3), on_success=[spy, async_spy]
+                until=AttemptsExhausted(3), on_success=[spy, async_hook_wrapper]
             ):
                 with attempt:
                     attempts += 1
@@ -207,10 +215,14 @@ class TestAttemptingHooks:
             attempts = 0
             spy = MagicMock()
             async_spy = AsyncMock()
+
+            async def async_hook_wrapper(state: AttemptState) -> None:
+                await async_spy(state=state)
+
             exception = Exception("Test exception")
             with pytest.raises(Exception):
                 for attempt in attempting(
-                    until=AttemptsExhausted(3), on_failure=[spy, async_spy]
+                    until=AttemptsExhausted(3), on_failure=[spy, async_hook_wrapper]
                 ):
                     with attempt:
                         attempts += 1
@@ -237,8 +249,14 @@ class TestAttemptingHooks:
             attempts = 0
             spy = MagicMock()
             async_spy = AsyncMock()
+
+            async def async_hook_wrapper(state: AttemptState) -> None:
+                await async_spy(state=state)
+
             for attempt in attempting(
-                until=AttemptsExhausted(3), wait=1, before_wait=[spy, async_spy]
+                until=AttemptsExhausted(3),
+                wait=1,
+                before_wait=[spy, async_hook_wrapper],
             ):
                 with attempt:
                     attempts += 1
@@ -262,8 +280,12 @@ class TestAttemptingHooks:
             attempts = 0
             spy = MagicMock()
             async_spy = AsyncMock()
+
+            async def async_hook_wrapper(state: AttemptState) -> None:
+                await async_spy(state=state)
+
             for attempt in attempting(
-                until=AttemptsExhausted(3), wait=1, after_wait=[spy, async_spy]
+                until=AttemptsExhausted(3), wait=1, after_wait=[spy, async_hook_wrapper]
             ):
                 with attempt:
                     attempts += 1
@@ -289,7 +311,7 @@ class TestAttemptingHooks:
             def failing_hook(state: AttemptState | None):
                 raise Exception("Test exception")
 
-            async def async_failing_hook(state: AttemptState | None):
+            async def async_failing_hook(state: AttemptState) -> None:
                 raise Exception("Test exception")
 
             attempts = 0
@@ -326,8 +348,12 @@ class TestAttemptingHooks:
 
             attempts = 0
             async_spy = AsyncMock()
+
+            async def async_hook_wrapper(state: AttemptState) -> None:
+                await async_spy(state=state)
+
             for attempt in attempting(
-                until=AttemptsExhausted(3), before_attempt=[async_spy]
+                until=AttemptsExhausted(3), before_attempt=[async_hook_wrapper]
             ):
                 with attempt:
                     attempts += 1
@@ -347,8 +373,13 @@ class TestAttemptingHooks:
             attempts = 0
             sync_spy = MagicMock()
             async_spy = AsyncMock()
+
+            async def async_hook_wrapper(state: AttemptState) -> None:
+                await async_spy(state=state)
+
             async for attempt in attempting_async(
-                until=AttemptsExhausted(3), before_attempt=[sync_spy, async_spy]
+                until=AttemptsExhausted(3),
+                before_attempt=[sync_spy, async_hook_wrapper],
             ):
                 async with attempt:
                     attempts += 1
@@ -373,8 +404,12 @@ class TestAttemptingHooks:
             attempts = 0
             sync_spy = MagicMock()
             async_spy = AsyncMock()
+
+            async def async_hook_wrapper(state: AttemptState) -> None:
+                await async_spy(state=state)
+
             async for attempt in attempting_async(
-                until=AttemptsExhausted(3), on_success=[sync_spy, async_spy]
+                until=AttemptsExhausted(3), on_success=[sync_spy, async_hook_wrapper]
             ):
                 async with attempt:
                     attempts += 1
@@ -393,10 +428,15 @@ class TestAttemptingHooks:
             attempts = 0
             sync_spy = MagicMock()
             async_spy = AsyncMock()
+
+            async def async_hook_wrapper(state: AttemptState) -> None:
+                await async_spy(state=state)
+
             exception = Exception("Test exception")
             with pytest.raises(Exception):
                 async for attempt in attempting_async(
-                    until=AttemptsExhausted(3), on_failure=[sync_spy, async_spy]
+                    until=AttemptsExhausted(3),
+                    on_failure=[sync_spy, async_hook_wrapper],
                 ):
                     async with attempt:
                         attempts += 1
@@ -423,8 +463,14 @@ class TestAttemptingHooks:
             attempts = 0
             sync_spy = MagicMock()
             async_spy = AsyncMock()
+
+            async def async_hook_wrapper(state: AttemptState) -> None:
+                await async_spy(state=state)
+
             async for attempt in attempting_async(
-                until=AttemptsExhausted(3), wait=1, before_wait=[sync_spy, async_spy]
+                until=AttemptsExhausted(3),
+                wait=1,
+                before_wait=[sync_spy, async_hook_wrapper],
             ):
                 async with attempt:
                     attempts += 1
@@ -448,8 +494,14 @@ class TestAttemptingHooks:
             attempts = 0
             sync_spy = MagicMock()
             async_spy = AsyncMock()
+
+            async def async_hook_wrapper(state: AttemptState) -> None:
+                await async_spy(state=state)
+
             async for attempt in attempting_async(
-                until=AttemptsExhausted(3), wait=1, after_wait=[sync_spy, async_spy]
+                until=AttemptsExhausted(3),
+                wait=1,
+                after_wait=[sync_spy, async_hook_wrapper],
             ):
                 async with attempt:
                     attempts += 1

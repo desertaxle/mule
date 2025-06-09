@@ -3,7 +3,16 @@ from __future__ import annotations
 import datetime
 from functools import partial, update_wrapper
 from inspect import iscoroutinefunction
-from typing import TYPE_CHECKING, Awaitable, Callable, Generic, TypeVar, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Awaitable,
+    Callable,
+    Generic,
+    TypeVar,
+    Union,
+    cast,
+    overload,
+)
 from typing_extensions import ParamSpec
 
 from mule._attempts.protocols import AsyncAttemptHook, AttemptHook
@@ -13,7 +22,7 @@ from mule._attempts import AttemptGenerator, AsyncAttemptGenerator, WaitTimeProv
 
 P = ParamSpec("P")
 R = TypeVar("R")
-H = TypeVar("H", bound=AttemptHook | AsyncAttemptHook)
+H = TypeVar("H", bound=Union[AttemptHook, AsyncAttemptHook])
 
 
 class Retriable(Generic[P, R]):
