@@ -55,7 +55,6 @@ class AsyncAttemptGenerator:
         self.after_wait = after_wait
 
         self._attempts: list[AsyncAttemptContext] = []
-        self._result: Any | None = None
 
     @property
     def last_attempt(self) -> AsyncAttemptContext | None:
@@ -168,7 +167,7 @@ class AsyncAttemptContext:
     ):
         self.attempt = attempt
         self.exception: BaseException | None = None
-        self.result: Any = ...
+        self.result: Any = ...  # Ellipsis is used as a sentinel to indicate that a result has not been set yet.
         self.before_attempt = before_attempt
         self.on_success = on_success
         self.on_failure = on_failure

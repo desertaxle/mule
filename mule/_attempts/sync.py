@@ -168,7 +168,7 @@ class AttemptContext:
     ):
         self.attempt = attempt
         self.exception: BaseException | None = None
-        self.result: Any = ...
+        self.result: Any = ...  # Ellipsis is used as a sentinel to indicate that a result has not been set yet.
         self.before_attempt = before_attempt
         self.on_success = on_success
         self.on_failure = on_failure
