@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Literal, Sequence
 from mule._attempts.protocols import HookType
 from mule.stop_conditions import NoException, StopCondition
 
-from .dataclasses import AttemptState
+from .dataclasses import AttemptState, Phase
 
 if TYPE_CHECKING:
     from .protocols import (
@@ -137,6 +137,7 @@ class AttemptGenerator:
                     else float(wait_time)
                 )
                 attempt.wait_seconds = wait_seconds
+                attempt.phase = Phase.WAITING
                 self._call_hooks(attempt, "before_wait")
                 time.sleep(wait_seconds)
                 self._call_hooks(attempt, "after_wait")
@@ -175,6 +176,7 @@ class AttemptContext:
         self.exception: BaseException | None = None
         self.result: Any = ...  # Ellipsis is used as a sentinel to indicate that a result has not been set yet.
         self.wait_seconds: float | None = None
+        self.phase: Phase = Phase.PENDING
         self.before_attempt = before_attempt
         self.on_success = on_success
         self.on_failure = on_failure
@@ -203,6 +205,7 @@ class AttemptContext:
 
     def __enter__(self) -> AttemptContext:
         self._call_hooks("before_attempt")
+        self.phase = Phase.RUNNING
         return self
 
     def __exit__(
@@ -213,8 +216,10 @@ class AttemptContext:
     ) -> bool | None:
         if _exc_value:
             self.exception = _exc_value
+            self.phase = Phase.FAILED
             self._call_hooks("on_failure")
         else:
+            self.phase = Phase.SUCCEEDED
             self._call_hooks("on_success")
         return True
 
@@ -224,6 +229,7 @@ class AttemptContext:
             exception=self.exception,
             result=self.result,
             wait_seconds=self.wait_seconds,
+            phase=self.phase,
         )
 
 

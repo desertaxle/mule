@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Any, Literal, Sequence, cast
 from mule._attempts.protocols import AsyncAttemptHook, AttemptHook, HookType
 from mule.stop_conditions import NoException, StopCondition
 
-from .dataclasses import AttemptState
+from .dataclasses import AttemptState, Phase
 
 if TYPE_CHECKING:
     from .protocols import WaitTimeProvider  # pragma: no cover
@@ -136,6 +136,7 @@ class AsyncAttemptGenerator:
                     else float(wait_time)
                 )
                 attempt.wait_seconds = wait_seconds
+                attempt.phase = Phase.WAITING
                 await self._call_hooks(attempt, "before_wait")
 
                 await asyncio.sleep(wait_seconds)
@@ -176,6 +177,7 @@ class AsyncAttemptContext:
         self.exception: BaseException | None = None
         self.result: Any = ...  # Ellipsis is used as a sentinel to indicate that a result has not been set yet.
         self.wait_seconds: float | None = None
+        self.phase: Phase = Phase.PENDING
         self.before_attempt = before_attempt
         self.on_success = on_success
         self.on_failure = on_failure
@@ -203,6 +205,7 @@ class AsyncAttemptContext:
 
     async def __aenter__(self) -> AsyncAttemptContext:
         await self._call_hooks("before_attempt")
+        self.phase = Phase.RUNNING
         return self
 
     async def __aexit__(
@@ -213,8 +216,10 @@ class AsyncAttemptContext:
     ) -> bool | None:
         if _exc_value:
             self.exception = _exc_value
+            self.phase = Phase.FAILED
             await self._call_hooks("on_failure")
         else:
+            self.phase = Phase.SUCCEEDED
             await self._call_hooks("on_success")
         return True
 
@@ -224,6 +229,7 @@ class AsyncAttemptContext:
             exception=self.exception,
             result=self.result,
             wait_seconds=self.wait_seconds,
+            phase=self.phase,
         )
 
 
