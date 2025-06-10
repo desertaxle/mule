@@ -190,6 +190,7 @@ class TestAttemptingHooks:
                 ]
             )
 
+        @pytest.mark.usefixtures("mock_sleep")
         def test_on_success(self):
             attempts = 0
             spy = MagicMock()
@@ -199,7 +200,9 @@ class TestAttemptingHooks:
                 await async_spy(state=state)
 
             for attempt in attempting(
-                until=AttemptsExhausted(3), on_success=[spy, async_hook_wrapper]
+                until=AttemptsExhausted(3),
+                on_success=[spy, async_hook_wrapper],
+                wait=1,
             ):
                 with attempt:
                     attempts += 1
@@ -267,12 +270,12 @@ class TestAttemptingHooks:
             assert attempts == 2
             spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
 
@@ -296,12 +299,12 @@ class TestAttemptingHooks:
             assert attempts == 2
             spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
 
@@ -401,6 +404,7 @@ class TestAttemptingHooks:
                 ]
             )
 
+        @pytest.mark.usefixtures("mock_async_sleep")
         async def test_on_success(self):
             attempts = 0
             sync_spy = MagicMock()
@@ -410,7 +414,9 @@ class TestAttemptingHooks:
                 await async_spy(state=state)
 
             async for attempt in attempting_async(
-                until=AttemptsExhausted(3), on_success=[sync_spy, async_hook_wrapper]
+                until=AttemptsExhausted(3),
+                on_success=[sync_spy, async_hook_wrapper],
+                wait=1,
             ):
                 async with attempt:
                     attempts += 1
@@ -481,12 +487,12 @@ class TestAttemptingHooks:
             assert attempts == 2
             sync_spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
 
@@ -512,12 +518,12 @@ class TestAttemptingHooks:
             assert attempts == 2
             sync_spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
 

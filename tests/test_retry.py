@@ -396,12 +396,12 @@ class TestHookDecorators:
 
             spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None)),
+                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None)),
+                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
 
@@ -428,12 +428,12 @@ class TestHookDecorators:
 
             spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None)),
+                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None)),
+                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
 
@@ -538,12 +538,12 @@ class TestHookDecorators:
 
             spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None)),
+                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None)),
+                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
 
@@ -570,11 +570,11 @@ class TestHookDecorators:
 
             spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None)),
+                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None)),
+                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
