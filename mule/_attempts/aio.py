@@ -161,7 +161,8 @@ class AsyncAttemptContext:
     """
     An async context manager that represents an attempt.
 
-    The attempt context is used to track the attempt number and the exception that occurred.
+    The attempt context is used to track the attempt number, the exception that occurred,
+    the result of the attempt, and the number of seconds waited after the attempt.
     """
 
     def __init__(

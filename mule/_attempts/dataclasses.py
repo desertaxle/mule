@@ -14,6 +14,7 @@ class AttemptState:
         exception: The exception that occurred, if any.
         result: The result of the attempt, if any. Ellipsis is used as a sentinel
             to indicate that a result has not been set yet.
+        wait_seconds: The number of seconds waited after the attempt.
     """
 
     attempt: int
