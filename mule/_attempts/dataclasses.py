@@ -19,3 +19,4 @@ class AttemptState:
     attempt: int
     exception: BaseException | None = None
     result: Any = ...
+    wait_seconds: float | None = None

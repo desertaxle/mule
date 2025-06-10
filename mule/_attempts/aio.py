@@ -130,12 +130,18 @@ class AsyncAttemptGenerator:
                     attempt.to_attempt_state(),
                 )
             if wait_time is not None:
+                wait_seconds = (
+                    wait_time.total_seconds()
+                    if isinstance(wait_time, datetime.timedelta)
+                    else float(wait_time)
+                )
+                attempt.wait_seconds = wait_seconds
                 await self._call_hooks(attempt, "before_wait")
-                if isinstance(wait_time, datetime.timedelta):
-                    await asyncio.sleep(wait_time.total_seconds())
-                else:
-                    await asyncio.sleep(float(wait_time))
+
+                await asyncio.sleep(wait_seconds)
+
                 await self._call_hooks(attempt, "after_wait")
+                attempt.wait_seconds = None
 
     async def __anext__(self) -> AsyncAttemptContext:
         if self.stop_condition.is_met(
@@ -168,6 +174,7 @@ class AsyncAttemptContext:
         self.attempt = attempt
         self.exception: BaseException | None = None
         self.result: Any = ...  # Ellipsis is used as a sentinel to indicate that a result has not been set yet.
+        self.wait_seconds: float | None = None
         self.before_attempt = before_attempt
         self.on_success = on_success
         self.on_failure = on_failure
@@ -215,6 +222,7 @@ class AsyncAttemptContext:
             attempt=self.attempt,
             exception=self.exception,
             result=self.result,
+            wait_seconds=self.wait_seconds,
         )
 
 

@@ -267,12 +267,12 @@ class TestAttemptingHooks:
             assert attempts == 2
             spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
 
@@ -296,12 +296,12 @@ class TestAttemptingHooks:
             assert attempts == 2
             spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
 
@@ -481,12 +481,12 @@ class TestAttemptingHooks:
             assert attempts == 2
             sync_spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
 
@@ -512,12 +512,12 @@ class TestAttemptingHooks:
             assert attempts == 2
             sync_spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(state=AttemptState(attempt=2, exception=None)),
+                    call(state=AttemptState(attempt=2, exception=None, wait_seconds=1)),
                 ]
             )
 

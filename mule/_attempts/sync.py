@@ -131,12 +131,16 @@ class AttemptGenerator:
                     attempt.to_attempt_state(),
                 )
             if wait_time is not None:
+                wait_seconds = (
+                    wait_time.total_seconds()
+                    if isinstance(wait_time, datetime.timedelta)
+                    else float(wait_time)
+                )
+                attempt.wait_seconds = wait_seconds
                 self._call_hooks(attempt, "before_wait")
-                if isinstance(wait_time, datetime.timedelta):
-                    time.sleep(wait_time.total_seconds())
-                else:
-                    time.sleep(float(wait_time))
+                time.sleep(wait_seconds)
                 self._call_hooks(attempt, "after_wait")
+                attempt.wait_seconds = None
 
     def __next__(self) -> AttemptContext:
         if self.stop_condition.is_met(
@@ -169,6 +173,7 @@ class AttemptContext:
         self.attempt = attempt
         self.exception: BaseException | None = None
         self.result: Any = ...  # Ellipsis is used as a sentinel to indicate that a result has not been set yet.
+        self.wait_seconds: float | None = None
         self.before_attempt = before_attempt
         self.on_success = on_success
         self.on_failure = on_failure
@@ -217,6 +222,7 @@ class AttemptContext:
             attempt=self.attempt,
             exception=self.exception,
             result=self.result,
+            wait_seconds=self.wait_seconds,
         )
 
 
