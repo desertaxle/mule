@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, call
 
 import pytest
 
-from mule._attempts.dataclasses import AttemptState
+from mule._attempts.dataclasses import AttemptState, Phase
 from mule._retry import Retriable, retry
 from mule.stop_conditions import AttemptsExhausted, StopCondition
 
@@ -313,8 +313,12 @@ class TestHookDecorators:
                 await async_spy(state)
 
             f(3)
-            spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
-            async_spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
+            spy.assert_called_once_with(
+                AttemptState(attempt=1, exception=None, phase=Phase.PENDING)
+            )
+            async_spy.assert_called_once_with(
+                AttemptState(attempt=1, exception=None, phase=Phase.PENDING)
+            )
 
         def test_retry_decorator_with_on_success_hook(self):
             spy = MagicMock()
@@ -334,10 +338,10 @@ class TestHookDecorators:
 
             f(3)
             spy.assert_called_once_with(
-                AttemptState(attempt=1, exception=None, result=9)
+                AttemptState(attempt=1, exception=None, result=9, phase=Phase.SUCCEEDED)
             )
             async_spy.assert_called_once_with(
-                AttemptState(attempt=1, exception=None, result=9)
+                AttemptState(attempt=1, exception=None, result=9, phase=Phase.SUCCEEDED)
             )
 
         def test_retry_decorator_with_on_failure_hook(self):
@@ -362,14 +366,22 @@ class TestHookDecorators:
 
             spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=1, exception=exception)),
-                    call(AttemptState(attempt=2, exception=exception)),
+                    call(
+                        AttemptState(attempt=1, exception=exception, phase=Phase.FAILED)
+                    ),
+                    call(
+                        AttemptState(attempt=2, exception=exception, phase=Phase.FAILED)
+                    ),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=1, exception=exception)),
-                    call(AttemptState(attempt=2, exception=exception)),
+                    call(
+                        AttemptState(attempt=1, exception=exception, phase=Phase.FAILED)
+                    ),
+                    call(
+                        AttemptState(attempt=2, exception=exception, phase=Phase.FAILED)
+                    ),
                 ]
             )
 
@@ -396,12 +408,26 @@ class TestHookDecorators:
 
             spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
+                    call(
+                        AttemptState(
+                            attempt=2,
+                            exception=None,
+                            wait_seconds=1,
+                            phase=Phase.WAITING,
+                        )
+                    ),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
+                    call(
+                        AttemptState(
+                            attempt=2,
+                            exception=None,
+                            wait_seconds=1,
+                            phase=Phase.WAITING,
+                        )
+                    ),
                 ]
             )
 
@@ -428,12 +454,26 @@ class TestHookDecorators:
 
             spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
+                    call(
+                        AttemptState(
+                            attempt=2,
+                            exception=None,
+                            wait_seconds=None,
+                            phase=Phase.PENDING,
+                        )
+                    ),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
+                    call(
+                        AttemptState(
+                            attempt=2,
+                            exception=None,
+                            wait_seconds=None,
+                            phase=Phase.PENDING,
+                        )
+                    ),
                 ]
             )
 
@@ -455,8 +495,12 @@ class TestHookDecorators:
                 await async_spy(state)
 
             await f(3)
-            spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
-            async_spy.assert_called_once_with(AttemptState(attempt=1, exception=None))
+            spy.assert_called_once_with(
+                AttemptState(attempt=1, exception=None, phase=Phase.PENDING)
+            )
+            async_spy.assert_called_once_with(
+                AttemptState(attempt=1, exception=None, phase=Phase.PENDING)
+            )
 
         async def test_retry_decorator_with_on_success_hook(self):
             spy = MagicMock()
@@ -476,10 +520,10 @@ class TestHookDecorators:
 
             await f(3)
             spy.assert_called_once_with(
-                AttemptState(attempt=1, exception=None, result=9)
+                AttemptState(attempt=1, exception=None, result=9, phase=Phase.SUCCEEDED)
             )
             async_spy.assert_called_once_with(
-                AttemptState(attempt=1, exception=None, result=9)
+                AttemptState(attempt=1, exception=None, result=9, phase=Phase.SUCCEEDED)
             )
 
         async def test_retry_decorator_with_on_failure_hook(self):
@@ -504,14 +548,22 @@ class TestHookDecorators:
 
             spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=1, exception=exception)),
-                    call(AttemptState(attempt=2, exception=exception)),
+                    call(
+                        AttemptState(attempt=1, exception=exception, phase=Phase.FAILED)
+                    ),
+                    call(
+                        AttemptState(attempt=2, exception=exception, phase=Phase.FAILED)
+                    ),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=1, exception=exception)),
-                    call(AttemptState(attempt=2, exception=exception)),
+                    call(
+                        AttemptState(attempt=1, exception=exception, phase=Phase.FAILED)
+                    ),
+                    call(
+                        AttemptState(attempt=2, exception=exception, phase=Phase.FAILED)
+                    ),
                 ]
             )
 
@@ -538,12 +590,26 @@ class TestHookDecorators:
 
             spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
+                    call(
+                        AttemptState(
+                            attempt=2,
+                            exception=None,
+                            wait_seconds=1,
+                            phase=Phase.WAITING,
+                        )
+                    ),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
+                    call(
+                        AttemptState(
+                            attempt=2,
+                            exception=None,
+                            wait_seconds=1,
+                            phase=Phase.WAITING,
+                        )
+                    ),
                 ]
             )
 
@@ -570,11 +636,25 @@ class TestHookDecorators:
 
             spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
+                    call(
+                        AttemptState(
+                            attempt=2,
+                            exception=None,
+                            wait_seconds=None,
+                            phase=Phase.PENDING,
+                        )
+                    ),
                 ]
             )
             async_spy.assert_has_calls(
                 [
-                    call(AttemptState(attempt=2, exception=None, wait_seconds=1)),
+                    call(
+                        AttemptState(
+                            attempt=2,
+                            exception=None,
+                            wait_seconds=None,
+                            phase=Phase.PENDING,
+                        )
+                    ),
                 ]
             )
