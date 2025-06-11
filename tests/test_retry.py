@@ -458,8 +458,8 @@ class TestHookDecorators:
                         AttemptState(
                             attempt=2,
                             exception=None,
-                            wait_seconds=1,
-                            phase=Phase.WAITING,
+                            wait_seconds=None,
+                            phase=Phase.PENDING,
                         )
                     ),
                 ]
@@ -470,8 +470,8 @@ class TestHookDecorators:
                         AttemptState(
                             attempt=2,
                             exception=None,
-                            wait_seconds=1,
-                            phase=Phase.WAITING,
+                            wait_seconds=None,
+                            phase=Phase.PENDING,
                         )
                     ),
                 ]
@@ -640,8 +640,8 @@ class TestHookDecorators:
                         AttemptState(
                             attempt=2,
                             exception=None,
-                            wait_seconds=1,
-                            phase=Phase.WAITING,
+                            wait_seconds=None,
+                            phase=Phase.PENDING,
                         )
                     ),
                 ]
@@ -652,8 +652,8 @@ class TestHookDecorators:
                         AttemptState(
                             attempt=2,
                             exception=None,
-                            wait_seconds=1,
-                            phase=Phase.WAITING,
+                            wait_seconds=None,
+                            phase=Phase.PENDING,
                         )
                     ),
                 ]

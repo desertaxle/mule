@@ -141,8 +141,9 @@ class AsyncAttemptGenerator:
 
                 await asyncio.sleep(wait_seconds)
 
-                await self._call_hooks(attempt, "after_wait")
                 attempt.wait_seconds = None
+                attempt.phase = Phase.PENDING
+                await self._call_hooks(attempt, "after_wait")
 
     async def __anext__(self) -> AsyncAttemptContext:
         if self.stop_condition.is_met(

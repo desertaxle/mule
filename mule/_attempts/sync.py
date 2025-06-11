@@ -140,8 +140,9 @@ class AttemptGenerator:
                 attempt.phase = Phase.WAITING
                 self._call_hooks(attempt, "before_wait")
                 time.sleep(wait_seconds)
-                self._call_hooks(attempt, "after_wait")
+                attempt.phase = Phase.PENDING
                 attempt.wait_seconds = None
+                self._call_hooks(attempt, "after_wait")
 
     def __next__(self) -> AttemptContext:
         if self.stop_condition.is_met(

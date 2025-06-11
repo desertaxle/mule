@@ -358,8 +358,8 @@ class TestAttemptingHooks:
                         state=AttemptState(
                             attempt=2,
                             exception=None,
-                            wait_seconds=1,
-                            phase=Phase.WAITING,
+                            wait_seconds=None,
+                            phase=Phase.PENDING,
                         )
                     ),
                 ]
@@ -370,8 +370,76 @@ class TestAttemptingHooks:
                         state=AttemptState(
                             attempt=2,
                             exception=None,
-                            wait_seconds=1,
+                            wait_seconds=None,
+                            phase=Phase.PENDING,
+                        )
+                    ),
+                ]
+            )
+
+        @pytest.mark.usefixtures("mock_sleep")
+        def test_all_hooks_are_called(self):
+            attempts = 0
+            spy = MagicMock()
+            exception = Exception("Test exception")
+
+            for attempt in attempting(
+                until=AttemptsExhausted(3),
+                wait=1,
+                before_attempt=[spy],
+                on_success=[spy],
+                on_failure=[spy],
+                before_wait=[spy],
+                after_wait=[spy],
+            ):
+                with attempt:
+                    attempts += 1
+                    if attempts < 2:
+                        raise exception
+
+            assert attempts == 2
+            spy.assert_has_calls(
+                [
+                    call(
+                        state=AttemptState(
+                            attempt=1, exception=None, phase=Phase.PENDING
+                        )
+                    ),
+                    call(
+                        state=AttemptState(
+                            attempt=1, exception=exception, phase=Phase.FAILED
+                        )
+                    ),
+                    call(
+                        state=AttemptState(
+                            attempt=2,
+                            exception=None,
                             phase=Phase.WAITING,
+                            wait_seconds=1,
+                        )
+                    ),
+                    call(
+                        state=AttemptState(
+                            attempt=2,
+                            exception=None,
+                            phase=Phase.PENDING,
+                            wait_seconds=None,
+                        )
+                    ),
+                    call(
+                        state=AttemptState(
+                            attempt=2,
+                            exception=None,
+                            phase=Phase.PENDING,
+                            wait_seconds=None,
+                        )
+                    ),
+                    call(
+                        state=AttemptState(
+                            attempt=2,
+                            exception=None,
+                            phase=Phase.SUCCEEDED,
+                            wait_seconds=None,
                         )
                     ),
                 ]
@@ -653,8 +721,8 @@ class TestAttemptingHooks:
                         state=AttemptState(
                             attempt=2,
                             exception=None,
-                            wait_seconds=1,
-                            phase=Phase.WAITING,
+                            wait_seconds=None,
+                            phase=Phase.PENDING,
                         )
                     ),
                 ]
@@ -665,8 +733,76 @@ class TestAttemptingHooks:
                         state=AttemptState(
                             attempt=2,
                             exception=None,
-                            wait_seconds=1,
+                            wait_seconds=None,
+                            phase=Phase.PENDING,
+                        )
+                    ),
+                ]
+            )
+
+        @pytest.mark.usefixtures("mock_async_sleep")
+        async def test_all_hooks_are_called(self):
+            attempts = 0
+            spy = AsyncMock()
+            exception = Exception("Test exception")
+
+            async for attempt in attempting_async(
+                until=AttemptsExhausted(3),
+                wait=1,
+                before_attempt=[spy],
+                on_success=[spy],
+                on_failure=[spy],
+                before_wait=[spy],
+                after_wait=[spy],
+            ):
+                async with attempt:
+                    attempts += 1
+                    if attempts < 2:
+                        raise exception
+
+            assert attempts == 2
+            spy.assert_has_calls(
+                [
+                    call(
+                        state=AttemptState(
+                            attempt=1, exception=None, phase=Phase.PENDING
+                        )
+                    ),
+                    call(
+                        state=AttemptState(
+                            attempt=1, exception=exception, phase=Phase.FAILED
+                        )
+                    ),
+                    call(
+                        state=AttemptState(
+                            attempt=2,
+                            exception=None,
                             phase=Phase.WAITING,
+                            wait_seconds=1,
+                        )
+                    ),
+                    call(
+                        state=AttemptState(
+                            attempt=2,
+                            exception=None,
+                            phase=Phase.PENDING,
+                            wait_seconds=None,
+                        )
+                    ),
+                    call(
+                        state=AttemptState(
+                            attempt=2,
+                            exception=None,
+                            phase=Phase.PENDING,
+                            wait_seconds=None,
+                        )
+                    ),
+                    call(
+                        state=AttemptState(
+                            attempt=2,
+                            exception=None,
+                            phase=Phase.SUCCEEDED,
+                            wait_seconds=None,
                         )
                     ),
                 ]
