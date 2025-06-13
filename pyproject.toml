@@ -2,8 +2,14 @@
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.hatch.build.targets.wheel]
+packages = ["mule"]
+
+[tool.hatch.build.targets.sdist]
+packages = ["mule"]
+
 [project]
-name = "mule"
+name = "mule-lib"
 version = "0.1.0"
 description = "Add a stubborn streak to your code."
 readme = "README.md"
