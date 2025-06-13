@@ -18,7 +18,7 @@ Mule is a powerful, lightweight Python library for implementing robust retry log
 ### Installation
 
 ```bash
-pip install mule
+pip install mule-lib
 ```
 
 ### Basic Usage
