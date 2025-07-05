@@ -32,19 +32,18 @@ class TestAttempting:
                 attempts += 1
                 if attempts < 2:
                     raise Exception("Test exception")
-                else:
-                    result = "Success"
+                result = "Success"
 
         assert result is not None
         assert attempts == 2
 
     def test_retry_context_with_failure(self):
         attempts = 0
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             for attempt in attempting(until=AttemptsExhausted(3)):
                 with attempt:
                     attempts += 1
-                    raise Exception("Test exception")
+                    raise RuntimeError("Test exception")
 
         assert attempts == 3
 
@@ -58,19 +57,18 @@ class TestAsyncAttempting:
                 attempts += 1
                 if attempts < 2:
                     raise Exception("Test exception")
-                else:
-                    result = "Success"
+                result = "Success"
 
         assert result is not None
         assert attempts == 2
 
     async def test_retry_context_with_failure(self):
         attempts = 0
-        with pytest.raises(Exception):
+        with pytest.raises(RuntimeError):
             async for attempt in attempting_async(until=AttemptsExhausted(3)):
                 async with attempt:
                     attempts += 1
-                    raise Exception("Test exception")
+                    raise RuntimeError("Test exception")
 
         assert attempts == 3
 
@@ -93,7 +91,7 @@ class TestWait:
     def test_wait_with_exponential_backoff_callable(self, mock_sleep: MagicMock):
         attempts = 0
 
-        def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
+        def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:  # noqa: ARG001
             return 2 ** (next.attempt - 1)
 
         for attempt in attempting(until=AttemptsExhausted(4), wait=exp_backoff):
@@ -135,7 +133,7 @@ class TestAsyncWait:
     ):
         attempts = 0
 
-        def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
+        def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:  # noqa: ARG001
             return 2 ** (next.attempt - 1)
 
         async for attempt in attempting_async(
@@ -240,8 +238,8 @@ class TestAttemptingHooks:
             async def async_hook_wrapper(state: AttemptState) -> None:
                 await async_spy(state=state)
 
-            exception = Exception("Test exception")
-            with pytest.raises(Exception):
+            exception = RuntimeError("Test exception")
+            with pytest.raises(RuntimeError):
                 for attempt in attempting(
                     until=AttemptsExhausted(3), on_failure=[spy, async_hook_wrapper]
                 ):
@@ -449,10 +447,10 @@ class TestAttemptingHooks:
         def test_hook_failure_does_not_stop_execution(
             self, caplog: pytest.LogCaptureFixture
         ):
-            def failing_hook(state: AttemptState | None):
+            def failing_hook(state: AttemptState | None):  # noqa: ARG001
                 raise Exception("Test exception")
 
-            async def async_failing_hook(state: AttemptState) -> None:
+            async def async_failing_hook(state: AttemptState) -> None:  # noqa: ARG001
                 raise Exception("Test exception")
 
             attempts = 0
@@ -484,7 +482,8 @@ class TestAttemptingHooks:
             assert "Error calling before_attempt hook async_failing_hook" in caplog.text
 
         def test_async_hooks_work_with_no_current_loop(self):
-            # Clear the current event loop so that asyncio.get_event_loop() raises a RuntimeError
+            # Clear the current event loop so that asyncio.get_event_loop() raises a
+            # RuntimeError
             asyncio.set_event_loop(None)
 
             attempts = 0
@@ -600,8 +599,8 @@ class TestAttemptingHooks:
             async def async_hook_wrapper(state: AttemptState) -> None:
                 await async_spy(state=state)
 
-            exception = Exception("Test exception")
-            with pytest.raises(Exception):
+            exception = RuntimeError("Test exception")
+            with pytest.raises(RuntimeError):
                 async for attempt in attempting_async(
                     until=AttemptsExhausted(3),
                     on_failure=[sync_spy, async_hook_wrapper],
@@ -812,10 +811,10 @@ class TestAttemptingHooks:
         async def test_hook_failure_does_not_stop_execution(
             self, caplog: pytest.LogCaptureFixture
         ):
-            def sync_failing_hook(state: AttemptState | None):
+            def sync_failing_hook(state: AttemptState | None):  # noqa: ARG001
                 raise Exception("Test exception")
 
-            async def async_failing_hook(state: AttemptState | None):
+            async def async_failing_hook(state: AttemptState | None):  # noqa: ARG001
                 raise Exception("Test exception")
 
             attempts = 0

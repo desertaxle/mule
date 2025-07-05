@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import datetime
+from collections.abc import Awaitable
 from functools import partial, update_wrapper
 from inspect import iscoroutinefunction
 from typing import (
     TYPE_CHECKING,
-    Awaitable,
     Callable,
     Generic,
     TypeVar,
@@ -29,12 +29,15 @@ class Retriable(Generic[P, R]):
     """
     A callable that retries a function until a stop condition is met.
 
-    In most cases, you should use the `@retry` decorator instead of instantiating this class directly.
+    In most cases, you should use the `@retry` decorator instead of instantiating this
+    class directly.
 
     Args:
         __fn: The function to retry on failure.
-        until: A `StopCondition` that determines when to stop retrying the provided function.
-        wait: A `datetime.timedelta`, a number of seconds, or a callable that takes an AttemptContext and returns a timedelta, seconds, or None.
+        until: A `StopCondition` that determines when to stop retrying the provided
+            function.
+        wait: A `datetime.timedelta`, a number of seconds, or a callable that takes an
+            AttemptContext and returns a timedelta, seconds, or None.
     """
 
     def __init__(
@@ -234,10 +237,12 @@ def retry(
     A function decorator that retries a function until a stop condition is met.
 
     Args:
-        until: A `StopCondition` that determines when to stop retrying the provided function.
-        wait: A `datetime.timedelta`, a number of seconds, or a callable that takes an AttemptContext and returns a timedelta, seconds, or None.
+        until: A `StopCondition` that determines when to stop retrying the provided
+            function.
+        wait: A `datetime.timedelta`, a number of seconds, or a callable that takes an
+            AttemptContext and returns a timedelta, seconds, or None.
 
-    Example:
+    Examples:
         Retry a function until 3 attempts have been made:
         ```python
         from mule import retry
@@ -248,7 +253,8 @@ def retry(
             return x * 3
         ```
 
-        Retry a function until 3 attempts have been made, waiting 5 seconds between attempts:
+        Retry a function until 3 attempts have been made, waiting 5 seconds between
+        attempts:
         ```python
         from mule import retry
         from mule.stop_conditions import AttemptsExhausted
@@ -290,5 +296,4 @@ def retry(
             ],
             partial(retry, until=until, wait=wait),
         )
-    else:
-        return Retriable(__fn, until=until, wait=wait)
+    return Retriable(__fn, until=until, wait=wait)

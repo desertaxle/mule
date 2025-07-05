@@ -88,7 +88,7 @@ class TestRetryDecorator:
 
         def test_retry_with_invalid_stop_condition(self):
             class NeverAttempt(StopCondition):
-                def is_met(self, context: AttemptState | None) -> bool:
+                def is_met(self, context: AttemptState | None) -> bool:  # noqa: ARG002
                     return True
 
             @retry(until=NeverAttempt())
@@ -127,7 +127,7 @@ class TestRetryDecorator:
         ):
             attempts = 0
 
-            def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
+            def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:  # noqa: ARG001
                 return 2 ** (next.attempt - 1)
 
             @retry(until=AttemptsExhausted(4), wait=exp_backoff)
@@ -153,7 +153,7 @@ class TestRetryDecorator:
         ):
             attempts = 0
 
-            def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
+            def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:  # noqa: ARG001
                 return min(3 ** (next.attempt - 1), 7)
 
             @retry(until=AttemptsExhausted(5), wait=exp_backoff)
@@ -206,7 +206,7 @@ class TestRetryDecorator:
 
         async def test_retry_with_invalid_stop_condition(self):
             class NeverAttempt(StopCondition):
-                def is_met(self, context: AttemptState | None) -> bool:
+                def is_met(self, context: AttemptState | None) -> bool:  # noqa: ARG002
                     return True
 
             @retry(until=NeverAttempt())
@@ -245,7 +245,7 @@ class TestRetryDecorator:
         ):
             attempts = 0
 
-            def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
+            def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:  # noqa: ARG001
                 return 2 ** (next.attempt - 1)
 
             @retry(until=AttemptsExhausted(4), wait=exp_backoff)
@@ -271,16 +271,16 @@ class TestRetryDecorator:
         ):
             attempts = 0
 
-            def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:
+            def exp_backoff(prev: AttemptState | None, next: AttemptState) -> int:  # noqa: ARG001
                 return min(3 ** (next.attempt - 1), 7)
 
             @retry(until=AttemptsExhausted(5), wait=exp_backoff)
-            async def f(x: int) -> int:
+            async def f(_x: int) -> int:
                 nonlocal attempts
                 attempts += 1
                 if attempts < 5:
                     raise Exception("fail")
-                return x
+                return _x
 
             assert await f(10) == 10
             # Should sleep 3, 7, 7, 7 (capped at max_wait=7)
@@ -350,7 +350,7 @@ class TestHookDecorators:
             exception = RuntimeError()
 
             @retry(until=AttemptsExhausted(2))
-            def f(x: int) -> int:
+            def f(_x: int) -> int:
                 raise exception
 
             @f.on_failure
@@ -392,7 +392,7 @@ class TestHookDecorators:
             exception = RuntimeError()
 
             @retry(until=AttemptsExhausted(2), wait=1)
-            def f(x: int) -> int:
+            def f(_x: int) -> int:
                 raise exception
 
             @f.before_wait
@@ -438,7 +438,7 @@ class TestHookDecorators:
             exception = RuntimeError()
 
             @retry(until=AttemptsExhausted(2), wait=1)
-            def f(x: int) -> int:
+            def f(_x: int) -> int:
                 raise exception
 
             @f.after_wait
@@ -532,7 +532,7 @@ class TestHookDecorators:
             exception = RuntimeError()
 
             @retry(until=AttemptsExhausted(2))
-            async def f(x: int) -> int:
+            async def f(_x: int) -> int:
                 raise exception
 
             @f.on_failure
@@ -574,7 +574,7 @@ class TestHookDecorators:
             exception = RuntimeError()
 
             @retry(until=AttemptsExhausted(2), wait=1)
-            async def f(x: int) -> int:
+            async def f(_x: int) -> int:
                 raise exception
 
             @f.before_wait
@@ -620,7 +620,7 @@ class TestHookDecorators:
             exception = RuntimeError()
 
             @retry(until=AttemptsExhausted(2), wait=1)
-            async def f(x: int) -> int:
+            async def f(_x: int) -> int:
                 raise exception
 
             @f.after_wait

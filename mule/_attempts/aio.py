@@ -4,8 +4,9 @@ import asyncio
 import datetime
 import inspect
 import logging
+from collections.abc import Sequence
 from types import TracebackType
-from typing import TYPE_CHECKING, Any, Literal, Sequence, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from mule._attempts.protocols import AsyncAttemptHook, AttemptHook, HookType
 from mule.stop_conditions import NoException, StopCondition
@@ -27,26 +28,33 @@ class AsyncAttemptGenerator:
 
     def __init__(
         self,
-        until: "StopCondition | None" = None,
-        wait: "datetime.timedelta | int | float | None | WaitTimeProvider" = None,
-        before_attempt: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
-        on_success: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
-        on_failure: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
-        before_wait: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
-        after_wait: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
+        until: StopCondition | None = None,
+        wait: datetime.timedelta | int | float | None | WaitTimeProvider = None,
+        before_attempt: Sequence[AttemptHook | AsyncAttemptHook] = (),
+        on_success: Sequence[AttemptHook | AsyncAttemptHook] = (),
+        on_failure: Sequence[AttemptHook | AsyncAttemptHook] = (),
+        before_wait: Sequence[AttemptHook | AsyncAttemptHook] = (),
+        after_wait: Sequence[AttemptHook | AsyncAttemptHook] = (),
     ):
         """
         Initialize the AttemptGenerator.
 
         Args:
             until: The stop condition for attempts.
-            wait: The wait time between attempts. Can be a timedelta, seconds (int/float),
-                or a WaitTimeProvider callable that takes an AttemptContext and returns a timedelta, seconds, or None.
+            wait: The wait time between attempts. Can be a timedelta, seconds
+                (int/float), or a WaitTimeProvider callable that takes an AttemptContext
+                and returns a timedelta, seconds, or None.
+            before_attempt: A sequence of callables that are called before each attempt.
+            on_success: A sequence of callables that are called when an attempt
+                succeeds.
+            on_failure: A sequence of callables that are called when an attempt fails.
+            before_wait: A sequence of callables that are called before each wait.
+            after_wait: A sequence of callables that are called after each wait.
         """
         if until is None:
             self.stop_condition = NoException()
         else:
-            self.stop_condition: "StopCondition" = until | NoException()
+            self.stop_condition: StopCondition = until | NoException()
         self.wait = wait
         self.before_attempt = before_attempt
         self.on_success = on_success
@@ -78,15 +86,14 @@ class AsyncAttemptGenerator:
             )
             self._attempts.append(next_attempt)
             return next_attempt
-        else:
-            next_attempt = AsyncAttemptContext(
-                attempt=self.last_attempt.attempt + 1,
-                before_attempt=self.before_attempt,
-                on_success=self.on_success,
-                on_failure=self.on_failure,
-            )
-            self._attempts.append(next_attempt)
-            return next_attempt
+        next_attempt = AsyncAttemptContext(
+            attempt=self.last_attempt.attempt + 1,
+            before_attempt=self.before_attempt,
+            on_success=self.on_success,
+            on_failure=self.on_failure,
+        )
+        self._attempts.append(next_attempt)
+        return next_attempt
 
     def __aiter__(self) -> AsyncAttemptGenerator:
         return self
@@ -96,7 +103,7 @@ class AsyncAttemptGenerator:
         attempt: AsyncAttemptContext,
         hooks_type: Literal["before_wait", "after_wait"],
     ) -> None:
-        default_hooks: Sequence[AttemptHook | AsyncAttemptHook] = tuple()
+        default_hooks: Sequence[AttemptHook | AsyncAttemptHook] = ()
         hooks: Sequence[AttemptHook | AsyncAttemptHook] = getattr(
             self, hooks_type, default_hooks
         )
@@ -115,7 +122,7 @@ class AsyncAttemptGenerator:
             return_exceptions=True,
         )
 
-    async def _wait_for_next_attempt(self, attempt: "AsyncAttemptContext") -> None:
+    async def _wait_for_next_attempt(self, attempt: AsyncAttemptContext) -> None:
         """
         Wait for the appropriate amount of time before the next attempt, if needed.
 
@@ -151,8 +158,7 @@ class AsyncAttemptGenerator:
         ):
             if self.last_attempt and (last_exception := self.last_attempt.exception):
                 raise last_exception
-            else:
-                raise StopAsyncIteration
+            raise StopAsyncIteration
 
         attempt = self.get_next_attempt()
         await self._wait_for_next_attempt(attempt)
@@ -163,20 +169,22 @@ class AsyncAttemptContext:
     """
     An async context manager that represents an attempt.
 
-    The attempt context is used to track the attempt number, the exception that occurred,
-    the result of the attempt, and the number of seconds waited after the attempt.
+    The attempt context is used to track the attempt number, the exception that
+    occurred, the result of the attempt, and the number of seconds waited after
+    the attempt.
     """
 
     def __init__(
         self,
         attempt: int,
-        before_attempt: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
-        on_success: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
-        on_failure: Sequence[AttemptHook | AsyncAttemptHook] = tuple(),
+        before_attempt: Sequence[AttemptHook | AsyncAttemptHook] = (),
+        on_success: Sequence[AttemptHook | AsyncAttemptHook] = (),
+        on_failure: Sequence[AttemptHook | AsyncAttemptHook] = (),
     ):
         self.attempt = attempt
         self.exception: BaseException | None = None
-        self.result: Any = ...  # Ellipsis is used as a sentinel to indicate that a result has not been set yet.
+        self.result: Any = ...  # Ellipsis is used as a sentinel to indicate that a
+        # result has not been set yet.
         self.wait_seconds: float | None = None
         self.phase: Phase = Phase.PENDING
         self.before_attempt = before_attempt
@@ -186,7 +194,7 @@ class AsyncAttemptContext:
     async def _call_hooks(
         self, hooks_type: Literal["before_attempt", "on_success", "on_failure"]
     ) -> None:
-        default_hooks: Sequence[AttemptHook | AsyncAttemptHook] = tuple()
+        default_hooks: Sequence[AttemptHook | AsyncAttemptHook] = ()
         hooks: Sequence[AttemptHook | AsyncAttemptHook] = getattr(
             self, hooks_type, default_hooks
         )

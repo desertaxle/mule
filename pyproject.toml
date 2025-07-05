@@ -32,7 +32,29 @@ asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
 
 [tool.ruff.lint]
-select = ["I"]
+select = [
+    "I",      # isort
+    "F",      # pyflakes
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "B",      # flake8-bugbear
+    "UP",     # pyupgrade
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+    "RET",    # flake8-return
+    "ARG",    # flake8-unused-arguments
+    "PTH",    # flake8-use-pathlib
+    "PGH",    # pygrep-hooks
+    "RUF",    # ruff-specific rules
+    "PERF",   # perflint
+]
+
+ignore = [
+    "TRY003",   # Long exception messages
+    "PLR2004",  # Magic values in tests
+    "BLE001",   # Bare except (address gradually)
+    "PERF203",  # try-except in loop
+]
 
 [tool.ruff.lint.isort]
 known-first-party = ["mule"]

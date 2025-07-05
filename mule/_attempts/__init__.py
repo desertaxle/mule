@@ -8,13 +8,13 @@ from .protocols import WaitTimeProvider
 from .sync import AttemptContext, AttemptGenerator, attempting
 
 __all__ = [
-    "attempting",
-    "AttemptGenerator",
+    "AsyncAttemptContext",
+    "AsyncAttemptGenerator",
     "AttemptContext",
+    "AttemptGenerator",
     "AttemptState",
     "Phase",
     "WaitTimeProvider",
+    "attempting",
     "attempting_async",
-    "AsyncAttemptGenerator",
-    "AsyncAttemptContext",
 ]

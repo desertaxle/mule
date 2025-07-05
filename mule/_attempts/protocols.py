@@ -15,7 +15,8 @@ HookType = Literal[
 
 class WaitTimeProvider(Protocol):
     """
-    Protocol for callables that produce a wait time given the previous and next AttemptState.
+    Protocol for callables that produce a wait time given the previous and next
+    AttemptState.
 
     Args:
         prev: The previous AttemptState, or None if this is the first attempt.
@@ -26,7 +27,7 @@ class WaitTimeProvider(Protocol):
     """
 
     def __call__(
-        self, prev: "AttemptState | None", next: "AttemptState"
+        self, prev: AttemptState | None, next: AttemptState
     ) -> datetime.timedelta | int | float | None: ...
 
 
@@ -38,19 +39,20 @@ class AttemptHook(Protocol):
         state: The AttemptState.
     """
 
-    def __call__(self, state: "AttemptState") -> None: ...
+    def __call__(self, state: AttemptState) -> None: ...
 
     __name__: str
 
 
 class AsyncAttemptHook(Protocol):
     """
-    Protocol for async callables that are called at various points in the attempt lifecycle.
+    Protocol for async callables that are called at various points in the attempt
+    lifecycle.
 
     Args:
         state: The AttemptState.
     """
 
-    async def __call__(self, state: "AttemptState") -> None: ...
+    async def __call__(self, state: AttemptState) -> None: ...
 
     __name__: str
